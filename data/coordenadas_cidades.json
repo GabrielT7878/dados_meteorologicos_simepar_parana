@@ -1,0 +1,198 @@
+{
+    "APPA Antonina": {
+        "latitude": -25.445312384406336,
+        "longitude": -48.69387780032831
+    },
+    "Altônia": {
+        "latitude": -23.8722004,
+        "longitude": -53.894037
+    },
+    "Antonina": {
+        "latitude": -25.4298854,
+        "longitude": -48.7125431
+    },
+    "Apucarana": {
+        "latitude": -23.5525327,
+        "longitude": -51.4610764
+    },
+    "Assis Chateaubriand": {
+        "latitude": -24.4054826,
+        "longitude": -53.5120468
+    },
+    "Baixo Iguaçu": {
+        "latitude": -25.5381966,
+        "longitude": -53.62009682084087
+    },
+    "Cambará": {
+        "latitude": -23.042273,
+        "longitude": -50.075281
+    },
+    "Campo Mourão": {
+        "latitude": -24.046329,
+        "longitude": -52.37802
+    },
+    "Candói": {
+        "latitude": -25.5711951,
+        "longitude": -52.051107
+    },
+    "Cascavel": {
+        "latitude": -24.9554996,
+        "longitude": -53.4560544
+    },
+    "Cerro Azul": {
+        "latitude": -24.8245108,
+        "longitude": -49.2615181
+    },
+    "Cianorte": {
+        "latitude": -23.662036,
+        "longitude": -52.6103989
+    },
+    "Cornélio Procópio": {
+        "latitude": -23.1825218,
+        "longitude": -50.6499263
+    },
+    "Cruzeiro do Iguaçu": {
+        "latitude": -25.6142278,
+        "longitude": -53.1299075
+    },
+    "Curitiba": {
+        "latitude": -25.4295963,
+        "longitude": -49.2712724
+    },
+    "Cândido de Abreu": {
+        "latitude": -24.5747463,
+        "longitude": -51.3432207
+    },
+    "Entre Rios": {
+        "latitude": -31.6252842,
+        "longitude": -59.3539578
+    },
+    "Fazenda Gralha Azul-PUC": {
+        "latitude": -25.65761102801813,
+        "longitude":-49.28809324339811
+    },
+    "Fernandes Pinheiro": {
+        "latitude": -25.4148066,
+        "longitude": -50.5489837
+    },
+    "Foz do Iguaçu": {
+        "latitude": -25.5304023,
+        "longitude": -54.5830692
+    },
+    "Francisco Beltrão": {
+        "latitude": -26.0790979,
+        "longitude": -53.0533527
+    },
+    "Guaira": {
+        "latitude": -24.0851924,
+        "longitude": -54.2567519
+    },
+    "Guarapuava": {
+        "latitude": -25.3950986,
+        "longitude": -51.4622016
+    },
+    "Guaratuba": {
+        "latitude": -25.8806192,
+        "longitude": -48.5750905
+    },
+    "Jaguariaiva": {
+        "latitude": -24.2589699,
+        "longitude": -49.7201518
+    },
+    "Lapa": {
+        "latitude": -13.2498754,
+        "longitude": -43.4101019
+    },
+    "Laranjeiras do Sul": {
+        "latitude": -25.4073197,
+        "longitude": -52.4150132
+    },
+    "Loanda": {
+        "latitude": -22.9320944,
+        "longitude": -53.1352452
+    },
+    "Londrina": {
+        "latitude": -23.3112878,
+        "longitude": -51.1595023
+    },
+    "Maringá": {
+        "latitude": -23.425269,
+        "longitude": -51.9382078
+    },
+    "Palmas": {
+        "latitude": 44.39975905,
+        "longitude": 2.8433617206815267
+    },
+    "Palmas - Horizonte": {
+        "latitude": -26.5890121,
+        "longitude": -51.573978
+    },
+    "Palotina": {
+        "latitude": -24.2839929,
+        "longitude": -53.8405463
+    },
+    "Paranaguá": {
+        "latitude": -25.5148822,
+        "longitude": -48.5226695
+    },
+    "Paranavaí": {
+        "latitude": -23.08165,
+        "longitude": -52.461724
+    },
+    "Pato Branco": {
+        "latitude": -26.2295984,
+        "longitude": -52.6712474
+    },
+    "Pinhais": {
+        "latitude": -25.4443488,
+        "longitude": -49.1900307
+    },
+    "Pinhão": {
+        "latitude": -25.6960895,
+        "longitude": -51.6566366
+    },
+    "Ponta Grossa": {
+        "latitude": -25.0891685,
+        "longitude": -50.1601812
+    },
+    "Reserva Natural Salto Morato": {
+        "latitude": -25.18009090608439,
+        "longitude": -48.29814425284574
+    },
+    "Santa Helena": {
+        "latitude": -15.96545515,
+        "longitude": -5.702575637953244
+    },
+    "Santa Maria do Oeste": {
+        "latitude": -24.9392355,
+        "longitude": -51.8712242
+    },
+    "Santo Antônio da Platina": {
+        "latitude": -23.2957157,
+        "longitude": -50.0778957
+    },
+    "São Miguel do Iguaçu": {
+        "latitude": -25.349171,
+        "longitude": -54.240498
+    },
+    "Telêmaco Borba": {
+        "latitude": -24.3282939,
+        "longitude": -50.6318021
+    },
+    "Toledo": {
+        "latitude": 39.8560679,
+        "longitude": -4.0239568
+    },
+    "Ubiratã": {
+        "latitude": -24.542725,
+        "longitude": -52.9899678
+    },
+    "Umuarama": {
+        "latitude": -23.7621152,
+        "longitude": -53.3116192
+    },
+    "União da Vitória": {
+        "latitude": -26.228596,
+        "longitude": -51.0869796
+    }
+}

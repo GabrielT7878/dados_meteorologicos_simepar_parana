@@ -188,7 +188,7 @@ from folium.plugins import HeatMap
 from folium import Choropleth
 
 data = "./data/geojs-41-mun.json"
-df_merged2 = pd.read_csv("conversaoDados/heat_map.csv",sep=",")
+# df_merged2 = pd.read_csv("conversaoDados/heat_map.csv",sep=",")
 # df_merged = pd.read_csv("./data/Interpolated_Precipitation_Data.csv",sep=",")
 
 df_base = pd.read_csv("./data/intepolation_base_cidades.csv",sep=",")

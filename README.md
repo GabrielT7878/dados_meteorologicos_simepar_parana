@@ -1,8 +1,7 @@
-# 🎬 Movies dataset template
+# ☁️ Meteorological Dataset App
 
-A simple Streamlit app showing movie data from [The Movie Database (TMDB)](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata). 
+A simple Streamlit app showing meteorological data from [Simepar](http://www.simepar.br/prognozweb/simepar). 
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://interactive-data-explorer-template.streamlit.app/)
 
 ### How to run it on your own machine
 

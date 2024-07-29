@@ -110,7 +110,7 @@ def createDailyChart(data, metric):
         max_scale = data[metric].max()
 
     chart_df = alt.Chart(data).mark_bar().encode(
-        y=alt.Y(metric,scale=alt.Scale(domain=[0, max_scale])),
+        y=alt.Y(metric,scale=alt.Scale(domain=[0, max_scale]), axis=alt.Axis(title=f'{metric} {metrics_unit[metric]}')),
         x=alt.X('Data')
     )
     st.altair_chart(chart_df,use_container_width=True)

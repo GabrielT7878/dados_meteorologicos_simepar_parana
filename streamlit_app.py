@@ -271,13 +271,15 @@ with col_map_city:
 
     if selected_region == 'Oeste Paraná':
         region = oeste_parana
+        index = 1
     else:
         region = sul_minas
+        index = 4
 
     selected_station = st.selectbox(
         "Cidade",
         region['municipio'].unique(),
-        1
+        index=index
     )
 
     col_map_city.header(selected_station)
@@ -288,23 +290,23 @@ with col_map_city:
 
 
     try:
-        population_cities = pd.read_csv('data/populacao_cidades_parana.csv')
+        population_cities = pd.read_csv('data/populacao_regioes.csv')
 
-        selected_station_population = population_cities[population_cities['Local'] == selected_station]
+        selected_station_population = population_cities[population_cities['Município'] == selected_station]
 
-        population = selected_station_population['Populacao'].values[0]
+        population = selected_station_population['População residente - pessoas [2022]'].astype(int).values[0]
 
-        df_agricola = pd.read_excel('./data/agricola_parana.xlsx')
+        df_agricola = pd.read_csv('./data/dados_agricola.csv')
 
         df_agricola['Município'] = df_agricola['Município'].str.strip()
 
         agricola_estacao = df_agricola[df_agricola['Município'] == selected_station]
 
         population_message = f"🌍 {num_to_human(population)}"
-        area_message = f"🌾 {num_to_human(agricola_estacao['Área destinada à colheita (Hectares)'].values[0])} hectares"
-        valor_producao_message = f"💰 R${num_to_human(agricola_estacao['Valor da produção (Mil Reais)'].values[0])}"
-
+        area_message = f"🌾 {num_to_human(agricola_estacao['Área destinada à colheita (Hectares)'].astype(int).values[0])} hectares"
+        valor_producao_message = f"💰 R${num_to_human(agricola_estacao['Valor da produção (Mil Reais)'].astype(int).values[0])}"
     except:
+
         population_message = "Dados não disponíveis"
         area_message = "Dados não disponíveis"
         valor_producao_message = "Dados não disponíveis"
@@ -364,12 +366,20 @@ with col_analyse_data_from_city:
         with col1:
             if count:
                 st.write(f'# Dias sem chuva: {count[0]}')
+                st.write(f'Último dia com chuva: {count[1]} : {count[2]:.2f}mm')
             else:
                 st.write(f'# Dias sem chuva: sem dados!')
-            st.markdown('---')
         with col2:
-            st.write(f'Último dia com chuva: {count[1]} : {count[2]:.2f}mm')
-            st.markdown('---')
+            st.subheader('Período')
+            start_date = st.date_input("Início",datetime.date.today() - datetime.timedelta(days=15),key='all-sources',max_value=datetime.date.today())
+            end_date = st.date_input("Fim",datetime.date.today() - datetime.timedelta(days=1),key='all-sources2',max_value=datetime.date.today())
+
+            if start_date > end_date:
+                st.write(':red[Período Inválido: Data de Início deve ser menor que a data de Fim]')
+                period_all_sources = (start_date,start_date + datetime.timedelta(days=1))
+            else:
+                period_all_sources = (start_date,end_date)
+
             
         ct_grap = st.container()
         col_grap1, col_grap2 = ct.columns([1, 1], gap='large')
@@ -377,8 +387,15 @@ with col_analyse_data_from_city:
         with col_grap1:
             #CPC
             cpc_last_update = pd.to_datetime(cpc_data['time'][cpc_data["time"].size-1].data)
-            st.write(f"CPC: última atualização: {cpc_last_update}")
-            cpc_period = st.date_input("Selecione um período",(cpc_last_update - datetime.timedelta(days=15),cpc_last_update),max_value=cpc_last_update)
+            st.markdown(f"**CPC**: última atualização: {pd.to_datetime(cpc_last_update).strftime('%d/%m/%Y')}")
+            
+            cpc_period = (cpc_last_update - datetime.timedelta(days=15),cpc_last_update)
+            
+            if pd.Timestamp(period_all_sources[1]) <= pd.Timestamp(cpc_last_update):
+                cpc_period = period_all_sources
+            else:
+                if pd.Timestamp(cpc_period[1]) >= pd.Timestamp(period_all_sources[0]):
+                    cpc_period = pd.to_datetime((period_all_sources[0],cpc_period[1]))
 
             if len(cpc_period) == 2:
                 numdays = (cpc_period[1] - cpc_period[0]).days + 1 
@@ -396,9 +413,14 @@ with col_analyse_data_from_city:
         with col_grap2:
             #CHIRPS
             chirps_last_update = pd.to_datetime(chirps_data['time'][chirps_data["time"].size-1].data)
-            st.write(f"CHIRPS: última atualização: {chirps_last_update}")
-            chirps_period = st.date_input("Selecione um período",(chirps_last_update - datetime.timedelta(days=15),chirps_last_update),max_value=chirps_last_update)
+            st.markdown(f"**CHIRPS**: última atualização: {pd.to_datetime(chirps_last_update).strftime('%d/%m/%Y')}")
+            chirps_period = (chirps_last_update - datetime.timedelta(days=15),chirps_last_update)
             
+            if pd.Timestamp(period_all_sources[1]) <= pd.Timestamp(chirps_last_update):
+                chirps_period = period_all_sources
+            else:
+                if pd.Timestamp(chirps_period[1]) >= pd.Timestamp(period_all_sources[0]):
+                    chirps_period = pd.to_datetime((period_all_sources[0],chirps_period[1]))
 
             if len(chirps_period) == 2:
 
@@ -423,9 +445,17 @@ with col_analyse_data_from_city:
             #SIMEPAR
             if selected_station.lower() in [x.lower() for x in meteorological_data['Cidade'].unique()]:
                 simepar_last_update = meteorological_data["Data"].max().date()
-                st.write(f"SIMEPAR: última atualização: {simepar_last_update}")
+                st.markdown(f"**SIMEPAR**: última atualização: {pd.to_datetime(simepar_last_update).strftime('%d/%m/%Y')}")
 
-                simepar_period = st.date_input("Selecione um período",(simepar_last_update - datetime.timedelta(days=15),simepar_last_update),max_value=simepar_last_update, min_value=meteorological_data["Data"].min(),key="simepar_period")
+                simepar_period = (simepar_last_update - datetime.timedelta(days=15),simepar_last_update)
+                
+                if pd.Timestamp(period_all_sources[1]) <= pd.Timestamp(simepar_last_update):
+                    simepar_period = period_all_sources
+                else:
+                    if pd.Timestamp(simepar_period[1]) >= pd.Timestamp(period_all_sources[0]):
+                        simepar_period = pd.to_datetime((period_all_sources[0],simepar_period[1]))
+                    
+                
                 if len(simepar_period) == 2:
                     df_filtered = meteorological_data[(meteorological_data["Cidade"].str.lower() == selected_station.lower()) & (meteorological_data["Data"] >= pd.to_datetime(simepar_period[0])) & (meteorological_data["Data"] <= pd.to_datetime(simepar_period[1]))]
                     df_simepar = df_filtered.groupby(['Data']).agg({metrics[4] : 'sum'}).reset_index()
@@ -440,9 +470,15 @@ with col_analyse_data_from_city:
             date_string = era5_req_date.json()['update_date']
             format = "%Y-%m-%d"
             era5_last_update = datetime.datetime.strptime(date_string, format) - datetime.timedelta(days=6) 
-            st.write(f"ERA 5: última atualização: {era5_last_update}")
+            st.markdown(f"**ERA 5**: última atualização: {pd.to_datetime(era5_last_update).strftime('%d/%m/%Y')}")
 
-            era5_period = st.date_input("Selecione um período",(era5_last_update - datetime.timedelta(days=7),era5_last_update),max_value=era5_last_update)
+            era5_period = (era5_last_update - datetime.timedelta(days=15),era5_last_update)
+            
+            if pd.Timestamp(period_all_sources[1]) <= pd.Timestamp(era5_last_update):
+                era5_period = period_all_sources
+            else:
+                if pd.Timestamp(era5_period[1]) >= pd.Timestamp(period_all_sources[0]):
+                    era5_period = pd.to_datetime((period_all_sources[0],era5_period[1]))
             
             if len(era5_period) == 2:
                 numdays = (era5_period[1] - era5_period[0]).days + 1
@@ -450,8 +486,6 @@ with col_analyse_data_from_city:
                 date_list = [era5_period[1] - datetime.timedelta(days=x) for x in range(numdays)]    
 
                 lat, lon = get_lat_long(selected_station)
-
-                #df_era5 = request_data_period_from_era5_api(date_list,lat,lon)
 
                 df_era5 = request_data_period_from_era5_api(date_list,lat,lon)
                 df_era5['Data'] = pd.to_datetime(df_era5['Data'])
@@ -485,7 +519,7 @@ with col_analyse_data_from_city:
 
 secao2 = st.container()
 col_precipitation_map, col_2 = secao2.columns([1, 1], gap='large')
-col_precipitation_map.header('Precipitação acumulada no Período')
+col_precipitation_map.header('Precipitação acumulada no Período - (Paraná)')
 
 meteorological_data = load_csv_data("data/dados_meteorologicos_simepar_parana.csv",sep=',')
 meteorological_data.fillna(0, inplace=True)

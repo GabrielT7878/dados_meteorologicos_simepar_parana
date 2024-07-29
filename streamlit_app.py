@@ -32,13 +32,14 @@ def load_geo_json_data(file_path):
     with open(file_path) as f:
         geojson_data = json.load(f)
         return geojson_data
-    
+
+@st.cache_data(ttl='1d')
 def load_csv_data(file_path,sep):
     df = pd.read_csv(file_path,sep=sep)
     return df
 
+@st.cache_data(ttl='1d')  
 def days_without_rain(city_option, actual_date, total_period_in_days):
-
     count = 0
     date = actual_date
     for i in range(0,total_period_in_days):
@@ -50,6 +51,7 @@ def days_without_rain(city_option, actual_date, total_period_in_days):
             return count
         date -= datetime.timedelta(days=1)
 
+@st.cache_data(ttl='1d')  
 def days_without_rain_nc(df,last_date_update):
     df = df[df['Precipitação Acumulada'] >= 5]
     if df.size > 0:
@@ -57,7 +59,7 @@ def days_without_rain_nc(df,last_date_update):
     
     return None
 
-
+@st.cache_data()
 def get_lat_long(city):
     location = region[region['municipio'] == city]
     if not location.empty:
@@ -75,6 +77,7 @@ def create_city_map(city_option):
 
     return city_map
 
+@st.cache_data(ttl='1d') 
 def interpolateData(data=None):
     known_precipitation = data.dropna(subset=['Precipitação Acumulada'])
     unknown_precipitation = data[data['Precipitação Acumulada'].isna()]
@@ -126,7 +129,7 @@ def createHourlyChart(df_chart,metric):
     st.altair_chart(chart, use_container_width=True)
 
 
-@st.cache_data
+@st.cache_data(ttl='1d') 
 def download_nc_data_from_source(url):
     url_split = url.split('/')
     file_name = url_split[-1]

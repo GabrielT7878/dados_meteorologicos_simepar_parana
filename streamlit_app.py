@@ -5,6 +5,7 @@ import datetime
 import numpy as np
 import folium
 from streamlit_folium import folium_static
+import streamlit.components.v1 as components
 from scipy.spatial import cKDTree
 import numpy as np
 from folium import Choropleth
@@ -76,6 +77,27 @@ def create_city_map(city_option):
     folium.Marker([latitude, longitude], tooltip=city_option).add_to(city_map)
 
     return city_map
+
+def render_folium_map(map_obj):
+    map_html = map_obj._repr_html_()
+
+    map_html = f"""
+    <html>
+    <head>
+    <style>
+    .folium-map {{
+        position: relative;
+        width: 100%;
+        height: 400vh;
+    }}
+    </style>
+    </head>
+    <body>
+    <div class="folium-map">{map_html}</div>
+    </body>
+    </html>
+    """
+    components.html(map_html, height=400)  # Ajuste a altura conforme necessário
 
 @st.cache_data(ttl='1d') 
 def interpolateData(data=None):
@@ -209,12 +231,15 @@ def request_data_period_from_era5_api(period,lat,lon):
         )
 
 def num_to_human(num):
-    if num >= 1_000_000:
-        num_milhao = num / 1_000_000
-        return f"{num_milhao:,.3f} milhões"
+    if num >= 1_000_000_000:
+        num_bilion = num / 1_000_000_000
+        return f"{num_bilion:,.3f} bilhões"
+    elif num >= 1_000_000:
+        num_milion = num / 1_000_000
+        return f"{num_milion:,.3f} milhões"
     elif num >= 1_000:
-        num_mil = num / 1_000
-        return f"{num_mil:,.3f} mil"
+        num_thousand = num / 1_000
+        return f"{num_thousand:,.3f} mil"
     else:
         return f"{num}"
     
@@ -289,40 +314,62 @@ with col_map_city:
 
 
     pr_map = create_city_map(selected_station)
-    folium_static(pr_map)
+    render_folium_map(pr_map)
+    # folium_static(pr_map,width=600,height=600)
 
+    population_cities = pd.read_csv('data/populacao_regioes.csv')
 
-    try:
-        population_cities = pd.read_csv('data/populacao_regioes.csv')
+    selected_station_population = population_cities[population_cities['Município'] == selected_station]
 
-        selected_station_population = population_cities[population_cities['Município'] == selected_station]
+    population = selected_station_population['População residente - pessoas [2022]'].astype(int).values[0]
 
-        population = selected_station_population['População residente - pessoas [2022]'].astype(int).values[0]
+    area_city = selected_station_population['Área Territorial - km² [2022]'].astype(int).values[0]
 
-        df_agricola = pd.read_csv('./data/dados_agricola.csv')
+    population_density = selected_station_population['Densidade demográfica - hab/km² [2022]'].astype(int).values[0]
 
-        df_agricola['Município'] = df_agricola['Município'].str.strip()
+    pib = selected_station_population['PIB per capita - R$ [2021]'].astype(int).values[0]
 
-        agricola_estacao = df_agricola[df_agricola['Município'] == selected_station]
+    propriedades_habitacionais = pd.read_csv('./data/total_propriedades_habitacionais.csv',sep=',')
 
-        population_message = f"🌍 {num_to_human(population)}"
-        area_message = f"🌾 {num_to_human(agricola_estacao['Área destinada à colheita (Hectares)'].astype(int).values[0])} hectares"
-        valor_producao_message = f"💰 R${num_to_human(agricola_estacao['Valor da produção (Mil Reais)'].astype(int).values[0])}"
-    except:
+    total_propriedades_habitacionais = propriedades_habitacionais[propriedades_habitacionais['Município'] == selected_station]['Domicílios recenseados (Domicílios)'].values[0]
 
-        population_message = "Dados não disponíveis"
-        area_message = "Dados não disponíveis"
-        valor_producao_message = "Dados não disponíveis"
+    df_agricola = pd.read_csv('./data/dados_agricola.csv')
 
+    df_agricola['Município'] = df_agricola['Município'].str.strip()
+
+    agricola_estacao = df_agricola[df_agricola['Município'] == selected_station]
+
+    population_message = f"🌍 {num_to_human(population)}"
+    area_message = f"🌾 {num_to_human(agricola_estacao['Área colhida (Hectares)'].astype(int).values[0] * 10000)} m²"
+    valor_producao_message = f"💰 R${num_to_human(agricola_estacao['Valor da produção (Mil Reais)'].astype(int).values[0])}"
 
 
     st.title("Dados Agrícolas e População")
 
+    
+
     st.markdown("---")
 
     # Informações de População
-    st.header("População")
-    st.subheader(population_message)
+    col1, col2, col3 = st.columns(3,gap='small')
+    with col1:
+        st.subheader("População")
+        st.subheader(population_message)
+    with col2:
+        st.subheader("Área Teritorial")
+        st.subheader(str(area_city) + ' km²')
+    with col3:
+        st.subheader("Densidade Populacional")
+        st.subheader(str(population_density) + ' (habitantes/km²)')
+
+    col1, col2, col3 = st.columns(3,gap='small')  
+    with col1:
+        st.subheader("Total de Propriedades Habitacionais")
+        st.subheader(num_to_human(total_propriedades_habitacionais))
+    with col2:
+        st.subheader("PIB")
+        print(pib * population)
+        st.subheader(f'R${num_to_human(pib * population)}')
 
     st.markdown("---")
 
@@ -331,12 +378,9 @@ with col_map_city:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("Área destinada à colheita")
+        st.subheader("Área Cultivada")
         st.subheader(area_message)
 
-    with col2:
-        st.subheader("Valor da produção anual")
-        st.subheader(valor_producao_message)
 
     st.markdown("---")
 
@@ -511,14 +555,6 @@ with col_analyse_data_from_city:
         
 
         createHourlyChart(df_simepar, metrics[0])
-        
-
-
-
-
-
-
-
 
 secao2 = st.container()
 col_precipitation_map, col_2 = secao2.columns([1, 1], gap='large')

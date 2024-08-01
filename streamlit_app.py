@@ -280,7 +280,8 @@ cpc_data = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets
 
 chirps_data = download_nc_data_from_source('https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p05/chirps-v2.0.2024.days_p05.nc')
 
-
+cpc_temperature_max = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_temp/tmax.2024.nc')
+cpc_temperature_min = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_temp/tmin.2024.nc')
 
 st.write(
     """
@@ -368,7 +369,6 @@ with col_map_city:
         st.subheader(num_to_human(total_propriedades_habitacionais))
     with col2:
         st.subheader("PIB")
-        print(pib * population)
         st.subheader(f'R${num_to_human(pib * population)}')
 
     st.markdown("---")
@@ -539,22 +539,37 @@ with col_analyse_data_from_city:
 
                 createDailyChart(df_era5, metrics[4])
     with tabs[1]:
-        st.write("Dados Simepar")
-        date = st.date_input("Selecione uma data ",meteorological_data["Data"].max(),min_value=meteorological_data["Data"].min(),max_value=meteorological_data["Data"].max())
-        
-        df_filtered = meteorological_data[(meteorological_data["Cidade"] == selected_station) & (meteorological_data["Data"] == pd.to_datetime(date))]
 
-        df_reshaped = df_filtered.pivot_table(
-            index="Horario", columns="Cidade", values=metrics[0], fill_value=0
-        )
+        #CPC TEMP
+        st.subheader("CPC")
+        numdays = (cpc_period[1] - cpc_period[0]).days + 1 
+        date_list = [cpc_period[1] - datetime.timedelta(days=x) for x in range(numdays)]
+        lat, lon = get_lat_long(selected_station)
 
-        df_simepar = pd.melt(
-            df_reshaped.reset_index(), id_vars="Horario", var_name="Cidade", value_name=metrics[0]
-        )
+        cpc_temperature_max = cpc_temperature_max.sel(time=date_list,lat=lat, lon=360 + lon, method='nearest')
+        cpc_temperature_min = cpc_temperature_min.sel(time=date_list,lat=lat, lon=360 + lon, method='nearest')
+        temp_mean = []
 
-        
 
-        createHourlyChart(df_simepar, metrics[0])
+        temp_mean = (cpc_temperature_max['tmax'].data + cpc_temperature_min['tmin'].data)/2
+
+        df_cpc = pd.DataFrame({
+            "Data": cpc_temperature_max['time'].data,
+            'Temperatura Média' : temp_mean,
+        })
+
+        createDailyChart(df_cpc,metrics[0])
+
+        #SIMEPAR
+        st.subheader("Simepar")
+        if selected_station.lower() in [x.lower() for x in meteorological_data['Cidade'].unique()]:
+            df_simepar = df_filtered.groupby(['Data']).agg({'Temperatura Média':'mean'}).reset_index()
+            createDailyChart(df_simepar,metrics[0])
+        else:
+            st.write("Simepar: Sem dados para a cidade selecionada!")   
+
+
+
 
 secao2 = st.container()
 col_precipitation_map, col_2 = secao2.columns([1, 1], gap='large')

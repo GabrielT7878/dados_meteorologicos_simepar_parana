@@ -34,7 +34,7 @@ def load_geo_json_data(file_path):
         geojson_data = json.load(f)
         return geojson_data
 
-@st.cache_data(ttl='1d')
+#@st.cache_data(ttl='1d')
 def load_csv_data(file_path,sep):
     df = pd.read_csv(file_path,sep=sep)
     return df
@@ -268,6 +268,7 @@ meteorological_data = load_csv_data("data/dados_meteorologicos_simepar_parana.cs
 
 oeste_parana = load_csv_data("./data/lat_lon_oeste_parana.csv",sep=',')
 sul_minas = load_csv_data("./data/lat_lon_sul_minas.csv",sep=',')
+metropolitana_sao_paulo = load_csv_data("./data/lat_long_cidades_rmsp.csv",sep=',')
 
 
 
@@ -296,14 +297,17 @@ col_analyse_data_from_city.header('Dados Meteorológicos')
 
 
 with col_map_city:
-    selected_region = st.radio('Selecione a Região:',['Oeste Paraná','Sul de Minas'],index=0, horizontal=True)
+    selected_region = st.radio('Selecione a Região:',['Oeste Paraná','Sul de Minas','Metropolitana de São Paulo '],index=0, horizontal=True)
 
     if selected_region == 'Oeste Paraná':
         region = oeste_parana
         index = 1
-    else:
+    elif selected_region == 'Sul de Minas':
         region = sul_minas
         index = 4
+    else:
+        region = metropolitana_sao_paulo
+        index = 1
 
     selected_station = st.selectbox(
         "Cidade",
@@ -317,69 +321,27 @@ with col_map_city:
     pr_map = create_city_map(selected_station)
     render_folium_map(pr_map)
 
-    population_cities = pd.read_csv('data/populacao_regioes.csv')
-
-    selected_station_population = population_cities[population_cities['Município'] == selected_station]
-
-    population = selected_station_population['População residente - pessoas [2022]'].astype(int).values[0]
-
-    area_city = selected_station_population['Área Territorial - km² [2022]'].astype(int).values[0]
-
-    population_density = selected_station_population['Densidade demográfica - hab/km² [2022]'].astype(int).values[0]
-
-    pib = selected_station_population['PIB per capita - R$ [2021]'].astype(int).values[0]
-
-    propriedades_habitacionais = pd.read_csv('./data/total_propriedades_habitacionais.csv',sep=',')
-
-    total_propriedades_habitacionais = propriedades_habitacionais[propriedades_habitacionais['Município'] == selected_station]['Domicílios recenseados (Domicílios)'].values[0]
-
     df_agricola = pd.read_csv('./data/dados_agricola.csv')
 
     df_agricola['Município'] = df_agricola['Município'].str.strip()
 
     agricola_estacao = df_agricola[df_agricola['Município'] == selected_station]
 
-    population_message = f"🌍 {num_to_human(population)}"
-    area_message = f"🌾 {num_to_human(agricola_estacao['Área colhida (Hectares)'].astype(int).values[0] * 10000)} m²"
-    valor_producao_message = f"💰 R${num_to_human(agricola_estacao['Valor da produção (Mil Reais)'].astype(int).values[0])}"
+    try:
+        area_message = f"🌾 {num_to_human(agricola_estacao['Área colhida (Hectares)'].astype(int).values[0] * 10000)} m²"
+    except:
+        area_message = "Dados não disponíveis"
 
+    st.title("Dados de Agricultura")
 
-    st.title("Dados Agrícolas e População")
-
-    
 
     st.markdown("---")
-
-    # Informações de População
-    col1, col2, col3 = st.columns(3,gap='small')
-    with col1:
-        st.subheader("População")
-        st.subheader(population_message)
-    with col2:
-        st.subheader("Área Teritorial")
-        st.subheader(str(area_city) + ' km²')
-    with col3:
-        st.subheader("Densidade Populacional")
-        st.subheader(str(population_density) + ' (habitantes/km²)')
-
-    col1, col2, col3 = st.columns(3,gap='small')  
-    with col1:
-        st.subheader("Total de Propriedades Habitacionais")
-        st.subheader(num_to_human(total_propriedades_habitacionais))
-    with col2:
-        st.subheader("PIB")
-        st.subheader(f'R${num_to_human(pib * population)}')
-
-    st.markdown("---")
-
     # Informações de Agricultura
-    st.header("Dados de Agricultura")
     col1, col2 = st.columns(2)
 
     with col1:
         st.subheader("Área Cultivada")
         st.subheader(area_message)
-
 
     st.markdown("---")
 

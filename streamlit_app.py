@@ -78,7 +78,7 @@ def create_city_map(city_option):
 
     return city_map
 
-def render_folium_map(map_obj):
+def render_folium_map(map_obj,height=400):
     map_html = map_obj._repr_html_()
 
     map_html = f"""
@@ -97,7 +97,7 @@ def render_folium_map(map_obj):
     </body>
     </html>
     """
-    components.html(map_html, height=400)  # Ajuste a altura conforme necessário
+    components.html(map_html, height=height)  # Ajuste a altura conforme necessário
 
 @st.cache_data(ttl='1d') 
 def interpolateData(data=None):
@@ -316,7 +316,6 @@ with col_map_city:
 
     pr_map = create_city_map(selected_station)
     render_folium_map(pr_map)
-    # folium_static(pr_map,width=600,height=600)
 
     population_cities = pd.read_csv('data/populacao_regioes.csv')
 
@@ -574,6 +573,7 @@ with col_analyse_data_from_city:
 secao2 = st.container()
 col_precipitation_map, col_2 = secao2.columns([1, 1], gap='large')
 col_precipitation_map.header('Precipitação acumulada no Período - (Paraná)')
+col_2.header('Precipitação acumulada no Período - (Minas Gerais)')
 
 meteorological_data = load_csv_data("data/dados_meteorologicos_simepar_parana.csv",sep=',')
 meteorological_data.fillna(0, inplace=True)
@@ -633,4 +633,67 @@ with col_precipitation_map:
         nan_fill_color="white"
     ).add_to(pr_map)
 
-    folium_static(pr_map)
+    render_folium_map(pr_map,height=600)
+
+with col_2:
+    selected_period_days = st.selectbox(
+            "Período",
+            [7,15,30],
+            format_func=lambda x: "últimos " + str(x) + " dias",
+            index=0,
+            key='precip_MG'
+        )
+
+    cities_geojson_data = load_geo_json_data("./data/geojs-31-mun.json")
+
+    cities_lat_long = pd.read_csv("./data/lat_long_cidades_mg.csv",sep=",")
+
+    date_list = [cpc_period[1] - datetime.timedelta(days=x) for x in range(selected_period_days)]
+
+    df_cpc = pd.DataFrame({
+        "Data": [],
+        "Precipitação Acumulada": []
+    })
+
+    for x in cities_lat_long['Cidade'].unique():
+        city =  cities_lat_long[cities_lat_long['Cidade'] == x]
+
+        precipitation_on_interval = cpc_data.sel(time=date_list,lat=city['latitude'].values[0], lon=360 + city['longitude'].values[0], method='nearest')
+        
+        city_data = {
+            "Cidade": x,
+            "Precipitação Acumulada": np.sum(precipitation_on_interval['precip'].data)
+        }
+        df_cpc = pd.concat([df_cpc, pd.DataFrame([city_data])], ignore_index=True)
+   
+    accumulated_precipitation_by_city = cities_lat_long.merge(df_cpc,on="Cidade",how="outer")
+
+    #Precipitation map in the period
+    mg_map = folium.Map(location=[-18.64288124580271, -44.686599834296274], zoom_start=6)
+
+    style = lambda x: {"color" : "white",
+                    "fillOpacity": 1,
+                    "weight": 1}
+
+    folium.GeoJson(
+        cities_geojson_data,
+        name='geojson',
+        style_function=style
+    ).add_to(mg_map)
+
+
+    Choropleth(
+        geo_data=cities_geojson_data,
+        name='precipitação acumulada no período',
+        data=accumulated_precipitation_by_city,
+        columns=['Cidade', 'Precipitação Acumulada'],
+        key_on='feature.properties.name',
+        fill_color='YlOrRd',
+        fill_opacity=0.7,
+        line_opacity=0.2,
+        legend_name='Precipitação Acumulada (mm)',
+        nan_fill_opacity=0.0,
+        nan_fill_color="white"
+    ).add_to(mg_map)
+
+    render_folium_map(mg_map,height=600)

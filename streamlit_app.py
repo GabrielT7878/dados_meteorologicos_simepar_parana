@@ -5,6 +5,7 @@ import datetime
 import numpy as np
 import folium
 from streamlit_folium import folium_static
+import streamlit.components.v1 as components
 from scipy.spatial import cKDTree
 import numpy as np
 from folium import Choropleth
@@ -76,6 +77,27 @@ def create_city_map(city_option):
     folium.Marker([latitude, longitude], tooltip=city_option).add_to(city_map)
 
     return city_map
+
+def render_folium_map(map_obj,height=400):
+    map_html = map_obj._repr_html_()
+
+    map_html = f"""
+    <html>
+    <head>
+    <style>
+    .folium-map {{
+        position: relative;
+        width: 100%;
+        height: 400vh;
+    }}
+    </style>
+    </head>
+    <body>
+    <div class="folium-map">{map_html}</div>
+    </body>
+    </html>
+    """
+    components.html(map_html, height=height)  # Ajuste a altura conforme necessário
 
 @st.cache_data(ttl='1d') 
 def interpolateData(data=None):
@@ -209,12 +231,15 @@ def request_data_period_from_era5_api(period,lat,lon):
         )
 
 def num_to_human(num):
-    if num >= 1_000_000:
-        num_milhao = num / 1_000_000
-        return f"{num_milhao:,.3f} milhões"
+    if num >= 1_000_000_000:
+        num_bilion = num / 1_000_000_000
+        return f"{num_bilion:,.3f} bilhões"
+    elif num >= 1_000_000:
+        num_milion = num / 1_000_000
+        return f"{num_milion:,.3f} milhões"
     elif num >= 1_000:
-        num_mil = num / 1_000
-        return f"{num_mil:,.3f} mil"
+        num_thousand = num / 1_000
+        return f"{num_thousand:,.3f} mil"
     else:
         return f"{num}"
     
@@ -255,7 +280,8 @@ cpc_data = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets
 
 chirps_data = download_nc_data_from_source('https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p05/chirps-v2.0.2024.days_p05.nc')
 
-
+cpc_temperature_max = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_temp/tmax.2024.nc')
+cpc_temperature_min = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_temp/tmin.2024.nc')
 
 st.write(
     """
@@ -289,40 +315,60 @@ with col_map_city:
 
 
     pr_map = create_city_map(selected_station)
-    folium_static(pr_map)
+    render_folium_map(pr_map)
 
+    population_cities = pd.read_csv('data/populacao_regioes.csv')
 
-    try:
-        population_cities = pd.read_csv('data/populacao_regioes.csv')
+    selected_station_population = population_cities[population_cities['Município'] == selected_station]
 
-        selected_station_population = population_cities[population_cities['Município'] == selected_station]
+    population = selected_station_population['População residente - pessoas [2022]'].astype(int).values[0]
 
-        population = selected_station_population['População residente - pessoas [2022]'].astype(int).values[0]
+    area_city = selected_station_population['Área Territorial - km² [2022]'].astype(int).values[0]
 
-        df_agricola = pd.read_csv('./data/dados_agricola.csv')
+    population_density = selected_station_population['Densidade demográfica - hab/km² [2022]'].astype(int).values[0]
 
-        df_agricola['Município'] = df_agricola['Município'].str.strip()
+    pib = selected_station_population['PIB per capita - R$ [2021]'].astype(int).values[0]
 
-        agricola_estacao = df_agricola[df_agricola['Município'] == selected_station]
+    propriedades_habitacionais = pd.read_csv('./data/total_propriedades_habitacionais.csv',sep=',')
 
-        population_message = f"🌍 {num_to_human(population)}"
-        area_message = f"🌾 {num_to_human(agricola_estacao['Área destinada à colheita (Hectares)'].astype(int).values[0])} hectares"
-        valor_producao_message = f"💰 R${num_to_human(agricola_estacao['Valor da produção (Mil Reais)'].astype(int).values[0])}"
-    except:
+    total_propriedades_habitacionais = propriedades_habitacionais[propriedades_habitacionais['Município'] == selected_station]['Domicílios recenseados (Domicílios)'].values[0]
 
-        population_message = "Dados não disponíveis"
-        area_message = "Dados não disponíveis"
-        valor_producao_message = "Dados não disponíveis"
+    df_agricola = pd.read_csv('./data/dados_agricola.csv')
 
+    df_agricola['Município'] = df_agricola['Município'].str.strip()
+
+    agricola_estacao = df_agricola[df_agricola['Município'] == selected_station]
+
+    population_message = f"🌍 {num_to_human(population)}"
+    area_message = f"🌾 {num_to_human(agricola_estacao['Área colhida (Hectares)'].astype(int).values[0] * 10000)} m²"
+    valor_producao_message = f"💰 R${num_to_human(agricola_estacao['Valor da produção (Mil Reais)'].astype(int).values[0])}"
 
 
     st.title("Dados Agrícolas e População")
 
+    
+
     st.markdown("---")
 
     # Informações de População
-    st.header("População")
-    st.subheader(population_message)
+    col1, col2, col3 = st.columns(3,gap='small')
+    with col1:
+        st.subheader("População")
+        st.subheader(population_message)
+    with col2:
+        st.subheader("Área Teritorial")
+        st.subheader(str(area_city) + ' km²')
+    with col3:
+        st.subheader("Densidade Populacional")
+        st.subheader(str(population_density) + ' (habitantes/km²)')
+
+    col1, col2, col3 = st.columns(3,gap='small')  
+    with col1:
+        st.subheader("Total de Propriedades Habitacionais")
+        st.subheader(num_to_human(total_propriedades_habitacionais))
+    with col2:
+        st.subheader("PIB")
+        st.subheader(f'R${num_to_human(pib * population)}')
 
     st.markdown("---")
 
@@ -331,12 +377,9 @@ with col_map_city:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("Área destinada à colheita")
+        st.subheader("Área Cultivada")
         st.subheader(area_message)
 
-    with col2:
-        st.subheader("Valor da produção anual")
-        st.subheader(valor_producao_message)
 
     st.markdown("---")
 
@@ -495,27 +538,34 @@ with col_analyse_data_from_city:
 
                 createDailyChart(df_era5, metrics[4])
     with tabs[1]:
-        st.write("Dados Simepar")
-        date = st.date_input("Selecione uma data ",meteorological_data["Data"].max(),min_value=meteorological_data["Data"].min(),max_value=meteorological_data["Data"].max())
-        
-        df_filtered = meteorological_data[(meteorological_data["Cidade"] == selected_station) & (meteorological_data["Data"] == pd.to_datetime(date))]
 
-        df_reshaped = df_filtered.pivot_table(
-            index="Horario", columns="Cidade", values=metrics[0], fill_value=0
-        )
+        #CPC TEMP
+        st.subheader("CPC")
+        numdays = (cpc_period[1] - cpc_period[0]).days + 1 
+        date_list = [cpc_period[1] - datetime.timedelta(days=x) for x in range(numdays)]
+        lat, lon = get_lat_long(selected_station)
 
-        df_simepar = pd.melt(
-            df_reshaped.reset_index(), id_vars="Horario", var_name="Cidade", value_name=metrics[0]
-        )
-
-        
-
-        createHourlyChart(df_simepar, metrics[0])
-        
+        cpc_temperature_max = cpc_temperature_max.sel(time=date_list,lat=lat, lon=360 + lon, method='nearest')
+        cpc_temperature_min = cpc_temperature_min.sel(time=date_list,lat=lat, lon=360 + lon, method='nearest')
+        temp_mean = []
 
 
+        temp_mean = (cpc_temperature_max['tmax'].data + cpc_temperature_min['tmin'].data)/2
 
+        df_cpc = pd.DataFrame({
+            "Data": cpc_temperature_max['time'].data,
+            'Temperatura Média' : temp_mean,
+        })
 
+        createDailyChart(df_cpc,metrics[0])
+
+        #SIMEPAR
+        st.subheader("Simepar")
+        if selected_station.lower() in [x.lower() for x in meteorological_data['Cidade'].unique()]:
+            df_simepar = df_filtered.groupby(['Data']).agg({'Temperatura Média':'mean'}).reset_index()
+            createDailyChart(df_simepar,metrics[0])
+        else:
+            st.write("Simepar: Sem dados para a cidade selecionada!")   
 
 
 
@@ -523,6 +573,7 @@ with col_analyse_data_from_city:
 secao2 = st.container()
 col_precipitation_map, col_2 = secao2.columns([1, 1], gap='large')
 col_precipitation_map.header('Precipitação acumulada no Período - (Paraná)')
+col_2.header('Precipitação acumulada no Período - (Minas Gerais)')
 
 meteorological_data = load_csv_data("data/dados_meteorologicos_simepar_parana.csv",sep=',')
 meteorological_data.fillna(0, inplace=True)
@@ -582,4 +633,67 @@ with col_precipitation_map:
         nan_fill_color="white"
     ).add_to(pr_map)
 
-    folium_static(pr_map)
+    render_folium_map(pr_map,height=600)
+
+with col_2:
+    selected_period_days = st.selectbox(
+            "Período",
+            [7,15,30],
+            format_func=lambda x: "últimos " + str(x) + " dias",
+            index=0,
+            key='precip_MG'
+        )
+
+    cities_geojson_data = load_geo_json_data("./data/geojs-31-mun.json")
+
+    cities_lat_long = pd.read_csv("./data/lat_long_cidades_mg.csv",sep=",")
+
+    date_list = [cpc_period[1] - datetime.timedelta(days=x) for x in range(selected_period_days)]
+
+    df_cpc = pd.DataFrame({
+        "Data": [],
+        "Precipitação Acumulada": []
+    })
+
+    for x in cities_lat_long['Cidade'].unique():
+        city =  cities_lat_long[cities_lat_long['Cidade'] == x]
+
+        precipitation_on_interval = cpc_data.sel(time=date_list,lat=city['latitude'].values[0], lon=360 + city['longitude'].values[0], method='nearest')
+        
+        city_data = {
+            "Cidade": x,
+            "Precipitação Acumulada": np.sum(precipitation_on_interval['precip'].data)
+        }
+        df_cpc = pd.concat([df_cpc, pd.DataFrame([city_data])], ignore_index=True)
+   
+    accumulated_precipitation_by_city = cities_lat_long.merge(df_cpc,on="Cidade",how="outer")
+
+    #Precipitation map in the period
+    mg_map = folium.Map(location=[-18.64288124580271, -44.686599834296274], zoom_start=6)
+
+    style = lambda x: {"color" : "white",
+                    "fillOpacity": 1,
+                    "weight": 1}
+
+    folium.GeoJson(
+        cities_geojson_data,
+        name='geojson',
+        style_function=style
+    ).add_to(mg_map)
+
+
+    Choropleth(
+        geo_data=cities_geojson_data,
+        name='precipitação acumulada no período',
+        data=accumulated_precipitation_by_city,
+        columns=['Cidade', 'Precipitação Acumulada'],
+        key_on='feature.properties.name',
+        fill_color='YlOrRd',
+        fill_opacity=0.7,
+        line_opacity=0.2,
+        legend_name='Precipitação Acumulada (mm)',
+        nan_fill_opacity=0.0,
+        nan_fill_color="white"
+    ).add_to(mg_map)
+
+    render_folium_map(mg_map,height=600)

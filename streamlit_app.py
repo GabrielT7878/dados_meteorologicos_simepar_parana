@@ -284,6 +284,8 @@ chirps_data = download_nc_data_from_source('https://data.chc.ucsb.edu/products/C
 cpc_temperature_max = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_temp/tmax.2024.nc')
 cpc_temperature_min = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_temp/tmin.2024.nc')
 
+lavouras_totais = pd.read_csv('data/agricola_cidades_MG_PR_SP.csv',sep=',')
+
 st.write(
     """
     Este painel visualiza dados meteorológicos de 4 fontes: CPC, ERA 5, SIMEPAR e CHIRPS
@@ -327,11 +329,16 @@ with col_map_city:
 
     agricola_estacao = df_agricola[df_agricola['Município'] == selected_station]
 
-    try:
-        area_message = f"🌾 {num_to_human(agricola_estacao['Área colhida (Hectares)'].astype(int).values[0] * 10000)} m²"
-    except:
+    culturas_comums = lavouras_totais[(lavouras_totais['Nome_Município'] == selected_station) & (lavouras_totais['produto'] != 'Café (em grão) Arábica')].sort_values(by='area_plantada',ascending=False).reset_index()['produto'].values
+
+    area_message = area_message = lavouras_totais[(lavouras_totais['Nome_Município'] == selected_station) & (lavouras_totais['produto'] != 'Café (em grão) Arábica')].agg({'area_plantada':'sum'}).values[0]
+
+    if area_message > 0:
+        area_message = f"🌾 {num_to_human(area_message)} Hectares"
+    else:
         area_message = "Dados não disponíveis"
 
+    
     st.title("Dados de Agricultura")
 
 
@@ -342,6 +349,17 @@ with col_map_city:
     with col1:
         st.subheader("Área Cultivada")
         st.subheader(area_message)
+    with col2:
+        if len(culturas_comums):
+            st.subheader("Culturas Cultivadas Mais Comuns")
+            if len(culturas_comums) < 3:
+                qtd_culturas = len(culturas_comums)
+            else:
+                qtd_culturas = 3
+            for i in range(qtd_culturas):
+                st.subheader(f'{i+1}º {culturas_comums[i]}')
+        else:
+            st.subheader(f'Sem Dados')   
 
     st.markdown("---")
 

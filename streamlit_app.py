@@ -34,12 +34,11 @@ def load_geo_json_data(file_path):
         geojson_data = json.load(f)
         return geojson_data
 
-#@st.cache_data(ttl='1d')
 def load_csv_data(file_path,sep):
     df = pd.read_csv(file_path,sep=sep)
     return df
 
-@st.cache_data(ttl='1d')  
+@st.cache_data(ttl=datetime.timedelta(days=1))  
 def days_without_rain(city_option, actual_date, total_period_in_days):
     count = 0
     date = actual_date
@@ -52,7 +51,7 @@ def days_without_rain(city_option, actual_date, total_period_in_days):
             return count
         date -= datetime.timedelta(days=1)
 
-@st.cache_data(ttl='1d')  
+@st.cache_data(ttl=datetime.timedelta(days=1))  
 def days_without_rain_nc(df,last_date_update):
     df = df[df['Precipitação Acumulada'] >= 5]
     if df.size > 0:
@@ -99,7 +98,7 @@ def render_folium_map(map_obj,height=400):
     """
     components.html(map_html, height=height)  # Ajuste a altura conforme necessário
 
-@st.cache_data(ttl='1d') 
+@st.cache_data(ttl=datetime.timedelta(days=1)) 
 def interpolateData(data=None):
     known_precipitation = data.dropna(subset=['Precipitação Acumulada'])
     unknown_precipitation = data[data['Precipitação Acumulada'].isna()]
@@ -151,7 +150,7 @@ def createHourlyChart(df_chart,metric):
     st.altair_chart(chart, use_container_width=True)
 
 
-@st.cache_data(ttl='1d') 
+@st.cache_data(ttl=datetime.timedelta(days=1)) 
 def download_nc_data_from_source(url):
     url_split = url.split('/')
     file_name = url_split[-1]
@@ -166,7 +165,7 @@ def download_nc_data_from_source(url):
     return data
 
 
-@st.cache_data
+@st.cache_data(ttl=datetime.timedelta(days=1))
 def request_data_period_from_era5_api(period,lat,lon):
     era5_conn = cdsapi.Client()
 
@@ -495,7 +494,7 @@ with col_analyse_data_from_city:
             era5_req_date = requests.get("https://cds.climate.copernicus.eu/api/v2.ui/resources/reanalysis-era5-single-levels")
             date_string = era5_req_date.json()['update_date']
             format = "%Y-%m-%d"
-            era5_last_update = datetime.datetime.strptime(date_string, format) - datetime.timedelta(days=6) 
+            era5_last_update = datetime.datetime.strptime(date_string, format) - datetime.timedelta(days=7) 
             st.markdown(f"**ERA 5**: última atualização: {pd.to_datetime(era5_last_update).strftime('%d/%m/%Y')}")
 
             era5_period = (era5_last_update - datetime.timedelta(days=15),era5_last_update)

@@ -205,29 +205,27 @@ def request_data_period_from_era5_api(period,lat,lon):
 
         data = xr.open_dataset('precipitation_data.nc')
 
+        data['time'] = data['time'].dt.date
+
         date_period = []
         day_precip = []
 
 
         for date in period:
-            hours = [f'{date}T{x:02}:00:00.000000000' for x in range(24)]
-            day = data.sel(time=hours)
-            date_period.append(date)
+            try:
+                day = data.sel(time=date)
+                date_period.append(date)
+                total_precip = day['tp'].sum() * 1000
+                day_precip.append(total_precip)
+            except:
+                continue
 
-            total_precip = 0
-            for precip in day["tp"].data:
-                total_precip += precip[0][0]
-
-            total_precip = total_precip * 1000
-
-            day_precip.append(total_precip)
-
-        return pd.DataFrame(
-            {
-                "Data" : date_period,
-                "Precipitação Acumulada" : day_precip
-            }
-        )
+    return pd.DataFrame(
+        {
+            "Data" : date_period,
+            "Precipitação Acumulada" : day_precip
+        }
+    )
 
 def num_to_human(num):
     if num >= 1_000_000_000:
@@ -494,7 +492,7 @@ with col_analyse_data_from_city:
             era5_req_date = requests.get("https://cds.climate.copernicus.eu/api/v2.ui/resources/reanalysis-era5-single-levels")
             date_string = era5_req_date.json()['update_date']
             format = "%Y-%m-%d"
-            era5_last_update = datetime.datetime.strptime(date_string, format) - datetime.timedelta(days=7) 
+            era5_last_update = datetime.datetime.strptime(date_string, format) - datetime.timedelta(days=5) 
             st.markdown(f"**ERA 5**: última atualização: {pd.to_datetime(era5_last_update).strftime('%d/%m/%Y')}")
 
             era5_period = (era5_last_update - datetime.timedelta(days=15),era5_last_update)
@@ -508,7 +506,7 @@ with col_analyse_data_from_city:
             if len(era5_period) == 2:
                 numdays = (era5_period[1] - era5_period[0]).days + 1
 
-                date_list = [era5_period[1] - datetime.timedelta(days=x) for x in range(numdays)]    
+                date_list = [era5_period[1] - datetime.timedelta(days=x) for x in range(numdays)]
 
                 lat, lon = get_lat_long(selected_station)
 

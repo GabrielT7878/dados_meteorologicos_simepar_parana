@@ -274,7 +274,11 @@ metropolitana_sao_paulo = load_csv_data("./data/lat_long_cidades_rmsp.csv",sep='
 meteorological_data.fillna(0, inplace=True)
 meteorological_data["Data"] = pd.to_datetime(meteorological_data["Data"])
 
-cpc_data = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_precip/precip.2024.nc')
+try:
+    cpc_data = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_precip/precip.2024.nc')
+except:
+    data = xr.open_dataset('precip.2024.nc')
+
 
 chirps_data = download_nc_data_from_source('https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p05/chirps-v2.0.2024.days_p05.nc')
 

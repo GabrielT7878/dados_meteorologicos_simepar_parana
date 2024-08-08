@@ -150,7 +150,7 @@ def createHourlyChart(df_chart,metric):
     st.altair_chart(chart, use_container_width=True)
 
 
-
+@st.cache_data(ttl=datetime.timedelta(days=1))
 def download_nc_data_from_source(url):
     url_split = url.split('/')
     file_name = url_split[-1]

@@ -150,7 +150,7 @@ def createHourlyChart(df_chart,metric):
     st.altair_chart(chart, use_container_width=True)
 
 
-@st.cache_data(ttl=datetime.timedelta(days=1)) 
+
 def download_nc_data_from_source(url):
     url_split = url.split('/')
     file_name = url_split[-1]
@@ -274,10 +274,9 @@ metropolitana_sao_paulo = load_csv_data("./data/lat_long_cidades_rmsp.csv",sep='
 meteorological_data.fillna(0, inplace=True)
 meteorological_data["Data"] = pd.to_datetime(meteorological_data["Data"])
 
-try:
-    cpc_data = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_precip/precip.2024.nc')
-except:
-    data = xr.open_dataset('precip.2024.nc')
+
+cpc_data = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_precip/precip.2024.nc')
+
 
 
 chirps_data = download_nc_data_from_source('https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p05/chirps-v2.0.2024.days_p05.nc')

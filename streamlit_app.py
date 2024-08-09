@@ -297,7 +297,6 @@ col_map_city, col_analyse_data_from_city = secao1.columns([0.7, 1], gap='large')
 col_analyse_data_from_city.header('Dados Meteorológicos')
 
 
-
 with col_map_city:
     selected_region = st.radio('Selecione a Região:',['Oeste Paraná','Sul de Minas','Metropolitana de São Paulo '],index=0, horizontal=True)
 
@@ -410,32 +409,8 @@ with col_analyse_data_from_city:
         ct_grap = st.container()
         col_grap1, col_grap2 = ct.columns([1, 1], gap='large')
 
-        with col_grap1:
-            #CPC
-            cpc_last_update = pd.to_datetime(cpc_data['time'][cpc_data["time"].size-1].data)
-            st.markdown(f"**CPC**: última atualização: {pd.to_datetime(cpc_last_update).strftime('%d/%m/%Y')}")
+
             
-            cpc_period = (cpc_last_update - datetime.timedelta(days=15),cpc_last_update)
-            
-            if pd.Timestamp(period_all_sources[1]) <= pd.Timestamp(cpc_last_update):
-                cpc_period = period_all_sources
-            else:
-                if pd.Timestamp(cpc_period[1]) >= pd.Timestamp(period_all_sources[0]):
-                    cpc_period = pd.to_datetime((period_all_sources[0],cpc_period[1]))
-
-            if len(cpc_period) == 2:
-                numdays = (cpc_period[1] - cpc_period[0]).days + 1 
-                date_list = [cpc_period[1] - datetime.timedelta(days=x) for x in range(numdays)]
-                lat, lon = get_lat_long(selected_station)
-
-                precipitation_on_interval = cpc_data.sel(time=date_list,lat=lat, lon=360 + lon, method='nearest')
-                df_cpc = pd.DataFrame({
-                    "Data": precipitation_on_interval['time'].data,
-                    "Precipitação Acumulada": precipitation_on_interval['precip'].data
-                })
-
-                createDailyChart(df_cpc ,metrics[4])
-                
         with col_grap2:
             #CHIRPS
             chirps_last_update = pd.to_datetime(chirps_data['time'][chirps_data["time"].size-1].data)
@@ -490,33 +465,33 @@ with col_analyse_data_from_city:
             else:
                 st.write("Simepar: Sem dados para a cidade selecionada!")               
             
-        with col_grap4:
-            #ERA 5
-            era5_req_date = requests.get("https://cds.climate.copernicus.eu/api/v2.ui/resources/reanalysis-era5-single-levels")
-            date_string = era5_req_date.json()['update_date']
-            format = "%Y-%m-%d"
-            era5_last_update = datetime.datetime.strptime(date_string, format) - datetime.timedelta(days=5) 
-            st.markdown(f"**ERA 5**: última atualização: {pd.to_datetime(era5_last_update).strftime('%d/%m/%Y')}")
+        # with col_grap4:
+        #     #ERA 5
+        #     era5_req_date = requests.get("https://cds.climate.copernicus.eu/api/v2.ui/resources/reanalysis-era5-single-levels")
+        #     date_string = era5_req_date.json()['update_date']
+        #     format = "%Y-%m-%d"
+        #     era5_last_update = datetime.datetime.strptime(date_string, format) - datetime.timedelta(days=5) 
+        #     st.markdown(f"**ERA 5**: última atualização: {pd.to_datetime(era5_last_update).strftime('%d/%m/%Y')}")
 
-            era5_period = (era5_last_update - datetime.timedelta(days=15),era5_last_update)
+        #     era5_period = (era5_last_update - datetime.timedelta(days=15),era5_last_update)
             
-            if pd.Timestamp(period_all_sources[1]) <= pd.Timestamp(era5_last_update):
-                era5_period = period_all_sources
-            else:
-                if pd.Timestamp(era5_period[1]) >= pd.Timestamp(period_all_sources[0]):
-                    era5_period = pd.to_datetime((period_all_sources[0],era5_period[1]))
+        #     if pd.Timestamp(period_all_sources[1]) <= pd.Timestamp(era5_last_update):
+        #         era5_period = period_all_sources
+        #     else:
+        #         if pd.Timestamp(era5_period[1]) >= pd.Timestamp(period_all_sources[0]):
+        #             era5_period = pd.to_datetime((period_all_sources[0],era5_period[1]))
             
-            if len(era5_period) == 2:
-                numdays = (era5_period[1] - era5_period[0]).days + 1
+        #     if len(era5_period) == 2:
+        #         numdays = (era5_period[1] - era5_period[0]).days + 1
 
-                date_list = [era5_period[1] - datetime.timedelta(days=x) for x in range(numdays)]
+        #         date_list = [era5_period[1] - datetime.timedelta(days=x) for x in range(numdays)]
 
-                lat, lon = get_lat_long(selected_station)
+        #         lat, lon = get_lat_long(selected_station)
 
-                df_era5 = request_data_period_from_era5_api(date_list,lat,lon)
-                df_era5['Data'] = pd.to_datetime(df_era5['Data'])
+        #         df_era5 = request_data_period_from_era5_api(date_list,lat,lon)
+        #         df_era5['Data'] = pd.to_datetime(df_era5['Data'])
 
-                createDailyChart(df_era5, metrics[4])
+        #         createDailyChart(df_era5, metrics[4])
     with tabs[1]:
 
         #CPC TEMP

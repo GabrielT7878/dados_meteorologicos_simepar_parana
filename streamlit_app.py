@@ -13,6 +13,7 @@ import cdsapi
 import xarray as xr
 import requests
 import json
+from bs4 import BeautifulSoup
 
 # --------------- Page config ---------------
 page_title = "Painel Seguro Paramétrico ☁️"
@@ -239,6 +240,26 @@ def num_to_human(num):
         return f"{num_thousand:,.3f} mil"
     else:
         return f"{num}"
+
+@st.cache_data(ttl=datetime.timedelta(days=1))
+def get_current_coffe_price():
+
+    url = 'https://www.cepea.esalq.usp.br/br/indicador/cafe.aspx'
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.content, 'html.parser')
+        df_valor_saca_cafe = pd.read_html(str(soup))
+        valor_saca_cafe_arabica = df_valor_saca_cafe[0].loc[0]['Valor R$']
+        return valor_saca_cafe_arabica
+
+    return None
+    
+
     
 
 
@@ -331,10 +352,10 @@ with col_map_city:
 
     culturas_comums = lavouras_totais[(lavouras_totais['Nome_Município'] == selected_station) & (lavouras_totais['produto'] != 'Café (em grão) Arábica')].sort_values(by='area_plantada',ascending=False).reset_index()['produto'].values
 
-    area_message = area_message = lavouras_totais[(lavouras_totais['Nome_Município'] == selected_station) & (lavouras_totais['produto'] != 'Café (em grão) Arábica')].agg({'area_plantada':'sum'}).values[0]
+    area_total = lavouras_totais[(lavouras_totais['Nome_Município'] == selected_station) & (lavouras_totais['produto'] != 'Café (em grão) Arábica')].agg({'area_plantada':'sum'}).values[0]
 
-    if area_message > 0:
-        area_message = f"🌾 {num_to_human(area_message)} Hectares"
+    if area_total > 0:
+        area_message = f"🌾 {num_to_human(area_total)} Hectares"
     else:
         area_message = "Dados não disponíveis"
 
@@ -382,7 +403,7 @@ with col_analyse_data_from_city:
         "Precipitação Acumulada": precipitation_on_interval['precip'].data
     })
 
-    count = days_without_rain_nc(df_cpc, cpc_last_update)
+    count_days_without_rain = days_without_rain_nc(df_cpc, cpc_last_update)
 
     tabs = st.tabs(['Chuva', 'Temperatura'])
 
@@ -390,9 +411,9 @@ with col_analyse_data_from_city:
         ct = st.container()
         col1, col2 = ct.columns([1, 1], gap='large')
         with col1:
-            if count:
-                st.write(f'# Dias sem chuva: {count[0]}')
-                st.write(f'Último dia com chuva: {count[1]} : {count[2]:.2f}mm')
+            if count_days_without_rain:
+                st.write(f'# Dias sem chuva: {count_days_without_rain[0]}')
+                st.write(f'Último dia com chuva: {count_days_without_rain[1]} : {count_days_without_rain[2]:.2f}mm')
             else:
                 st.write(f'# Dias sem chuva: sem dados!')
         with col2:
@@ -548,7 +569,90 @@ with col_analyse_data_from_city:
             st.write("Simepar: Sem dados para a cidade selecionada!")   
 
 
+simulacao_seguro_container = st.container()
 
+dias_de_corbertura_seguro = 151
+
+with simulacao_seguro_container:
+    st.title('📊 Simulação do Seguro')
+    
+    # Criação das abas
+    tabs = st.tabs(['☕ Café', '🌱 Soja'])
+    
+    with tabs[0]:
+        st.header('Seguro Paramétrico com cobertura contra a Seca (Café)')
+        st.write('')
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        st.header(f'🗺️ Região: {selected_station}')
+        st.subheader(f' ')
+
+        # Dashboard com cartões e layout de colunas
+        col1, col2, col3= st.columns([0.7,0.1,0.3])
+
+        with col1:
+            sub_col1, sub_col2 = st.columns(2)
+
+            with sub_col1:
+                st.subheader('📅 Período de Cobertura')
+                st.metric(label="", value=f"{dias_de_corbertura_seguro} Dias", delta="(Agosto a Dezembro)")
+            with sub_col2:
+                st.subheader('🌧️ Gatilho de Indenização')
+                st.metric(label="", value="Dias sem chuva")
+
+            sub_col3, sub_col4 = st.columns(2)
+
+            with sub_col3:
+                st.subheader('🌍 Área Total Segurada')
+                st.metric(label="", value=f"{num_to_human(area_total)} hectares")
+
+            with sub_col4:
+                st.subheader('💰 Valor Atual da Saca de Café')
+                st.metric(label="", value=f"R$ {get_current_coffe_price()}")
+
+
+        with col2:
+        
+            st.html(
+            '''
+                <div class="divider-vertical-line"></div>
+                <style>
+                    .divider-vertical-line {
+                        border-left: 2px solid rgba(49, 51, 63, 0.5);
+                        height: 320px;
+                        margin: auto;
+                    }
+                </style>
+            '''
+            )
+
+        with col3:
+            valor_saca_cafe_arabica = float(get_current_coffe_price().replace('.', '').replace(',', '.'))
+            lmi = area_total * valor_saca_cafe_arabica
+            valor_indenizacao = round((count_days_without_rain[0] / dias_de_corbertura_seguro) * lmi)
+
+            st.subheader(f'🌧️ Dias sem chuva')
+
+            cpc_date_list = [cpc_last_update - datetime.timedelta(days=x) for x in range((pd.to_datetime(cpc_last_update) - pd.to_datetime(datetime.date(2024,8,1))).days)]
+            
+            lat, lon = get_lat_long(selected_station)
+
+            precipitation_on_interval = cpc_data.sel(time=cpc_date_list,lat=lat, lon=360 + lon, method='nearest')
+
+            df_cpc = pd.DataFrame({
+                "Data": precipitation_on_interval['time'].data,
+                "Precipitação Acumulada": precipitation_on_interval['precip'].data
+            })
+
+
+            st.metric(label="", value=f"{count_days_without_rain[0]}")
+            st.subheader('💵 Valor da Indenização')
+            st.write(' ')
+            st.header(f":green[R$ {num_to_human(valor_indenizacao)}]")
+
+st.write(' ')
+st.write(' ')
+st.write(' ')
 
 secao2 = st.container()
 col_precipitation_map, col_2 = secao2.columns([1, 1], gap='large')

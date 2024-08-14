@@ -62,7 +62,7 @@ def days_without_rain_nc(df,last_date_update):
 
 @st.cache_data()
 def get_lat_long(city):
-    location = region[region['municipio'] == city]
+    location = region[region['Cidade'] == city]
     if not location.empty:
         return location["latitude"].values[0], location["longitude"].values[0]
     
@@ -166,68 +166,6 @@ def download_nc_data_from_source(url):
     return data
 
 
-@st.cache_data(ttl=datetime.timedelta(days=1))
-def request_data_period_from_era5_api(period,lat,lon):
-    era5_conn = cdsapi.Client()
-
-    hash_table = {}
-    for date in period:
-        if not str(date.month) in hash_table:
-            hash_table[str(date.month)] = []
-        hash_table[str(date.month)].append(date.day)
-    
-    for key in hash_table.keys():
-        era5_conn.retrieve(
-            'reanalysis-era5-single-levels',
-            {
-            'product_type': 'reanalysis',
-            'variable': 'total_precipitation',
-            'year': '2024',
-            'month': key,
-            'day': hash_table[key], 
-            'time': [
-                    '00:00', '01:00', '02:00',
-                    '03:00', '04:00', '05:00',
-                    '06:00', '07:00', '08:00',
-                    '09:00', '10:00', '11:00',
-                    '12:00', '13:00', '14:00',
-                    '15:00', '16:00', '17:00',
-                    '18:00', '19:00', '20:00',
-                    '21:00', '22:00', '23:00',
-            ],
-            'area': [
-                lat,lon, 
-                lat,lon,
-            ],
-            'format': 'netcdf',
-        },
-            'precipitation_data.nc'
-        )
-
-        data = xr.open_dataset('precipitation_data.nc')
-
-        data['time'] = data['time'].dt.date
-
-        date_period = []
-        day_precip = []
-
-
-        for date in period:
-            try:
-                day = data.sel(time=date)
-                date_period.append(date)
-                total_precip = day['tp'].sum() * 1000
-                day_precip.append(total_precip)
-            except:
-                continue
-
-    return pd.DataFrame(
-        {
-            "Data" : date_period,
-            "Precipitação Acumulada" : day_precip
-        }
-    )
-
 def num_to_human(num):
     if num >= 1_000_000_000:
         num_bilion = num / 1_000_000_000
@@ -258,10 +196,46 @@ def get_current_coffe_price():
         return valor_saca_cafe_arabica
 
     return None
-    
 
-    
+@st.cache_data
+def calculate_days_without_rain_for_region(region,last_update):
+    #Testing calculate days without rain:
 
+    cities_lat_long = region
+
+    cidade = []
+    dias_sem_chuva = []
+
+
+    date_list = [pd.to_datetime(last_update) - datetime.timedelta(days=x) for x in range(180)]
+
+    for x in cities_lat_long['Cidade'].unique():
+        city =  cities_lat_long[cities_lat_long['Cidade'] == x]
+
+        precipitation_on_interval = cpc_data.sel(time=date_list,lat=city['latitude'].values[0], lon=360 + city['longitude'].values[0], method='nearest')
+
+        precip_bigger_than_5mm = precipitation_on_interval.where(precipitation_on_interval['precip']>5)
+
+        precip_bigger_than_5mm = precip_bigger_than_5mm.dropna(dim='time')
+
+        cidade.append(x)
+        dias_sem_chuva.append(int((pd.to_datetime(last_update) - pd.to_datetime(precip_bigger_than_5mm['time'].data[0])).days))
+
+
+    df_cpc = pd.DataFrame({
+        "Cidade": cidade,
+        "Dias Sem Chuva": dias_sem_chuva
+    })
+
+    return df_cpc
+
+
+tooltip = folium.GeoJsonTooltip(
+    fields=["name"],
+    aliases=["Cidade: "],
+    localize=True
+)
+    
 
 
 metrics = ["Temperatura Média",
@@ -298,10 +272,6 @@ meteorological_data["Data"] = pd.to_datetime(meteorological_data["Data"])
 
 cpc_data = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_precip/precip.2024.nc')
 
-
-
-chirps_data = download_nc_data_from_source('https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_daily/netcdf/p05/chirps-v2.0.2024.days_p05.nc')
-
 cpc_temperature_max = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_temp/tmax.2024.nc')
 cpc_temperature_min = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_temp/tmin.2024.nc')
 
@@ -314,7 +284,7 @@ st.write(
 )
 
 secao1 = st.container()
-col_map_city, col_analyse_data_from_city = secao1.columns([0.7, 1], gap='large')
+col_map_city, col_analyse_data_from_city = secao1.columns([1, 1], gap='large')
 col_analyse_data_from_city.header('Dados Meteorológicos')
 
 
@@ -334,7 +304,7 @@ with col_map_city:
 
     selected_station = st.selectbox(
         "Cidade",
-        region['municipio'].unique(),
+        region['Cidade'].unique(),
         index=index
     )
 
@@ -385,7 +355,6 @@ with col_map_city:
     st.markdown("---")
 
 
-
 with col_analyse_data_from_city:
 
     actual_date = meteorological_data["Data"].max()
@@ -429,9 +398,8 @@ with col_analyse_data_from_city:
 
             
         ct_grap = st.container()
-        col_grap1, col_grap2 = ct.columns([1, 1], gap='large')
 
-        with col_grap1:
+        with ct_grap:
             #CPC
             cpc_last_update = pd.to_datetime(cpc_data['time'][cpc_data["time"].size-1].data)
             st.markdown(f"**CPC**: última atualização: {pd.to_datetime(cpc_last_update).strftime('%d/%m/%Y')}")
@@ -457,87 +425,76 @@ with col_analyse_data_from_city:
 
                 createDailyChart(df_cpc ,metrics[4])
                 
-        with col_grap2:
-            #CHIRPS
-            chirps_last_update = pd.to_datetime(chirps_data['time'][chirps_data["time"].size-1].data)
-            st.markdown(f"**CHIRPS**: última atualização: {pd.to_datetime(chirps_last_update).strftime('%d/%m/%Y')}")
-            chirps_period = (chirps_last_update - datetime.timedelta(days=15),chirps_last_update)
-            
-            if pd.Timestamp(period_all_sources[1]) <= pd.Timestamp(chirps_last_update):
-                chirps_period = period_all_sources
-            else:
-                if pd.Timestamp(chirps_period[1]) >= pd.Timestamp(period_all_sources[0]):
-                    chirps_period = pd.to_datetime((period_all_sources[0],chirps_period[1]))
+                #MAP
+                secao2 = st.container()
+                secao2.header(f'Mapa Dias sem Chuva - Região: {selected_region}')
 
-            if len(chirps_period) == 2:
 
-                numdays = (chirps_period[1] - chirps_period[0]).days + 1
+                meteorological_data.fillna(0, inplace=True)
+                meteorological_data["Data"] = pd.to_datetime(meteorological_data["Data"])
 
-                date_list = [chirps_period[1] - datetime.timedelta(days=x) for x in range(numdays)]
+                df_cpc = calculate_days_without_rain_for_region(region,cpc_last_update)
 
-                lat, lon = get_lat_long(selected_station)
+                st.subheader(f"Cidades com {count_days_without_rain[0]} dias sem chuva: {round(len(df_cpc[df_cpc['Dias Sem Chuva'] == count_days_without_rain[0]]) /  len(df_cpc) * 100)} %")            
+                coords_map = None
 
-                precipitation_on_interval = chirps_data.sel(time=date_list,latitude=lat, longitude=lon, method='nearest')
-
-                df_cpc = pd.DataFrame({
-                    "Data": precipitation_on_interval['time'].data,
-                    "Precipitação Acumulada": precipitation_on_interval['precip'].data
-                })
-
-                createDailyChart(df_cpc, metrics[4]) 
-        
-        ct_grap2 = st.container()
-        col_grap3, col_grap4 = ct.columns([1, 1], gap='large')
-        with col_grap3:
-            #SIMEPAR
-            if selected_station.lower() in [x.lower() for x in meteorological_data['Cidade'].unique()]:
-                simepar_last_update = meteorological_data["Data"].max().date()
-                st.markdown(f"**SIMEPAR**: última atualização: {pd.to_datetime(simepar_last_update).strftime('%d/%m/%Y')}")
-
-                simepar_period = (simepar_last_update - datetime.timedelta(days=15),simepar_last_update)
-                
-                if pd.Timestamp(period_all_sources[1]) <= pd.Timestamp(simepar_last_update):
-                    simepar_period = period_all_sources
+                if selected_region == 'Oeste Paraná':
+                    region_code = 41
+                    coords_map = [-24.292611466381025, -53.31514183892323]
+                elif selected_region == 'Sul de Minas':
+                    region_code = 31
+                    coords_map = [-21.544771753269067, -45.452079858011935]
                 else:
-                    if pd.Timestamp(simepar_period[1]) >= pd.Timestamp(period_all_sources[0]):
-                        simepar_period = pd.to_datetime((period_all_sources[0],simepar_period[1]))
-                    
+                    region_code = 35
+                    coords_map = [-23.51712720453375, -46.58213425292997]
                 
-                if len(simepar_period) == 2:
-                    df_filtered = meteorological_data[(meteorological_data["Cidade"].str.lower() == selected_station.lower()) & (meteorological_data["Data"] >= pd.to_datetime(simepar_period[0])) & (meteorological_data["Data"] <= pd.to_datetime(simepar_period[1]))]
-                    df_simepar = df_filtered.groupby(['Data']).agg({metrics[4] : 'sum'}).reset_index()
-                    
-                    createDailyChart(df_simepar, metrics[4])
-            else:
-                st.write("Simepar: Sem dados para a cidade selecionada!")               
+                #cities_geojson_data = load_geo_json_data(f"./data/geojs-{region_code}-mun.json")
+                cities_geojson_data = load_geo_json_data(f"./data/{region_code}_geo.json")
+                
+
+                #cities_lat_long = pd.read_csv("./data/lat_long_cidades_mg.csv",sep=",")
+                cities_lat_long = pd.read_csv("./data/lat_lon_sul_minas.csv",sep=",")
             
-        # with col_grap4:
-        #     #ERA 5
-        #     era5_req_date = requests.get("https://cds.climate.copernicus.eu/api/v2.ui/resources/reanalysis-era5-single-levels")
-        #     date_string = era5_req_date.json()['update_date']
-        #     format = "%Y-%m-%d"
-        #     era5_last_update = datetime.datetime.strptime(date_string, format) - datetime.timedelta(days=5) 
-        #     st.markdown(f"**ERA 5**: última atualização: {pd.to_datetime(era5_last_update).strftime('%d/%m/%Y')}")
+                accumulated_precipitation_by_city = cities_lat_long.merge(df_cpc,on="Cidade",how="outer")
 
-        #     era5_period = (era5_last_update - datetime.timedelta(days=15),era5_last_update)
-            
-        #     if pd.Timestamp(period_all_sources[1]) <= pd.Timestamp(era5_last_update):
-        #         era5_period = period_all_sources
-        #     else:
-        #         if pd.Timestamp(era5_period[1]) >= pd.Timestamp(period_all_sources[0]):
-        #             era5_period = pd.to_datetime((period_all_sources[0],era5_period[1]))
-            
-        #     if len(era5_period) == 2:
-        #         numdays = (era5_period[1] - era5_period[0]).days + 1
+                #Precipitation map in the period
+                mg_map = folium.Map(location=coords_map, zoom_start=8)
 
-        #         date_list = [era5_period[1] - datetime.timedelta(days=x) for x in range(numdays)]
+                style = lambda x: {"color" : "white",
+                                "fillOpacity": 1,
+                                "weight": 1}
 
-        #         lat, lon = get_lat_long(selected_station)
+                folium.GeoJson(
+                    cities_geojson_data,
+                    name='geojson',
+                    style_function=style
+                ).add_to(mg_map)
 
-        #         df_era5 = request_data_period_from_era5_api(date_list,lat,lon)
-        #         df_era5['Data'] = pd.to_datetime(df_era5['Data'])
 
-        #         createDailyChart(df_era5, metrics[4])
+
+
+                Choropleth(
+                    geo_data=cities_geojson_data,
+                    name='Dias Sem Chuva',
+                    data=df_cpc,
+                    columns=['Cidade', 'Dias Sem Chuva'],
+                    key_on='feature.properties.name',
+                    fill_color='YlOrRd',
+                    fill_opacity=0.7,
+                    line_opacity=0.2,
+                    legend_name='Dias Sem Chuva',
+                    nan_fill_opacity=0.0,
+                    nan_fill_color="white",
+                    highlight=True
+                ).add_to(mg_map)
+
+                accumulated_precipitation_by_city = accumulated_precipitation_by_city.dropna()
+
+                render_folium_map(mg_map,height=600)
+
+                st.dataframe(df_cpc,use_container_width=True,height=200)
+             
+
     with tabs[1]:
 
         #CPC TEMP
@@ -550,7 +507,6 @@ with col_analyse_data_from_city:
         cpc_temperature_min = cpc_temperature_min.sel(time=date_list,lat=lat, lon=360 + lon, method='nearest')
         temp_mean = []
 
-
         temp_mean = (cpc_temperature_max['tmax'].data + cpc_temperature_min['tmin'].data)/2
 
         df_cpc = pd.DataFrame({
@@ -558,15 +514,31 @@ with col_analyse_data_from_city:
             'Temperatura Média' : temp_mean,
         })
 
-        createDailyChart(df_cpc,metrics[0])
+        df_cpc_min_max_temp = pd.DataFrame({
+            "Data": cpc_temperature_max['time'].data,
+            "Temp_Max": cpc_temperature_max['tmax'].data,
+            "Temp_Min": cpc_temperature_min['tmin'].data
+        })
 
-        #SIMEPAR
-        st.subheader("Simepar")
-        if selected_station.lower() in [x.lower() for x in meteorological_data['Cidade'].unique()]:
-            df_simepar = df_filtered.groupby(['Data']).agg({'Temperatura Média':'mean'}).reset_index()
-            createDailyChart(df_simepar,metrics[0])
-        else:
-            st.write("Simepar: Sem dados para a cidade selecionada!")   
+        df_cpc_min_max_temp["Data"] = df_cpc_min_max_temp["Data"].dt.strftime('%d/%m')
+
+        max_scale = 50
+
+        chart_df_temp_max = alt.Chart(df_cpc_min_max_temp).mark_bar(opacity=1,color='darksalmon').encode(
+            y=alt.Y('Temp_Max',scale=alt.Scale(domain=[0, max_scale]), axis=alt.Axis()),
+            x=alt.X('Data')
+        )
+
+        chart_df_temp_min = alt.Chart(df_cpc_min_max_temp).mark_bar(opacity=0.6,color='aliceblue').encode(
+            y=alt.Y('Temp_Min',scale=alt.Scale(domain=[0, max_scale]), axis=alt.Axis(title=f'Temperatura Máxima e Miníma ºC')),
+            x=alt.X('Data')
+        )
+
+        c = alt.layer(chart_df_temp_max, chart_df_temp_min)
+
+        st.altair_chart(c, use_container_width=True)
+
+        #createDailyChart(df_cpc,metrics[0])
 
 
 simulacao_seguro_container = st.container()
@@ -654,130 +626,8 @@ st.write(' ')
 st.write(' ')
 st.write(' ')
 
-secao2 = st.container()
-col_precipitation_map, col_2 = secao2.columns([1, 1], gap='large')
-col_precipitation_map.header('Precipitação acumulada no Período - (Paraná)')
-col_2.header('Precipitação acumulada no Período - (Minas Gerais)')
-
-meteorological_data = load_csv_data("data/dados_meteorologicos_simepar_parana.csv",sep=',')
-meteorological_data.fillna(0, inplace=True)
-meteorological_data["Data"] = pd.to_datetime(meteorological_data["Data"])
-
-with col_precipitation_map:
-    selected_period_days = st.selectbox(
-            "Período",
-            [7,15,30],
-            format_func=lambda x: "últimos " + str(x) + " dias",
-            index=0
-        )
-
-    interval_period = meteorological_data["Data"].max() - datetime.timedelta(days=selected_period_days), meteorological_data["Data"].max()
-
-    df_period_selected = meteorological_data[(meteorological_data["Data"] >= interval_period[0]) & (meteorological_data["Data"] <= interval_period[1])]
-
-    # Estimate precipitation on all cities 
-    cities_geojson_data = load_geo_json_data("./data/geojs-41-mun.json")
-
-    cities_lat_long = pd.read_csv("./data/lat_long_cidades_pr.csv",sep=",")
-
-    df_period_total =df_period_selected.groupby(['Cidade']).agg({'Precipitação Acumulada': 'sum'}).reset_index()
-
-    accumulated_precipitation_by_station = df_period_total[["Cidade","Precipitação Acumulada"]]
-
-    accumulated_precipitation_by_city = cities_lat_long.merge(accumulated_precipitation_by_station,on="Cidade",how="outer")
-
-    accumulated_precipitation_estimation = interpolateData(accumulated_precipitation_by_city)
 
 
-    #Precipitation map in the period
-    pr_map = folium.Map(location=[-24.5452, -51.5652], zoom_start=7)
-
-    style = lambda x: {"color" : "white",
-                    "fillOpacity": 1,
-                    "weight": 1}
-
-    folium.GeoJson(
-        cities_geojson_data,
-        name='geojson',
-        style_function=style
-    ).add_to(pr_map)
 
 
-    Choropleth(
-        geo_data=cities_geojson_data,
-        name='precipitação acumulada no período',
-        data=accumulated_precipitation_estimation,
-        columns=['Cidade', 'Precipitação Acumulada'],
-        key_on='feature.properties.name',
-        fill_color='YlOrRd',
-        fill_opacity=0.7,
-        line_opacity=0.2,
-        legend_name='Precipitação Acumulada (mm)',
-        nan_fill_opacity=0.0,
-        nan_fill_color="white"
-    ).add_to(pr_map)
 
-    render_folium_map(pr_map,height=600)
-
-with col_2:
-    selected_period_days = st.selectbox(
-            "Período",
-            [7,15,30],
-            format_func=lambda x: "últimos " + str(x) + " dias",
-            index=0,
-            key='precip_MG'
-        )
-
-    cities_geojson_data = load_geo_json_data("./data/geojs-31-mun.json")
-
-    cities_lat_long = pd.read_csv("./data/lat_long_cidades_mg.csv",sep=",")
-
-    date_list = [cpc_period[1] - datetime.timedelta(days=x) for x in range(selected_period_days)]
-
-    df_cpc = pd.DataFrame({
-        "Data": [],
-        "Precipitação Acumulada": []
-    })
-
-    for x in cities_lat_long['Cidade'].unique():
-        city =  cities_lat_long[cities_lat_long['Cidade'] == x]
-
-        precipitation_on_interval = cpc_data.sel(time=date_list,lat=city['latitude'].values[0], lon=360 + city['longitude'].values[0], method='nearest')
-        
-        city_data = {
-            "Cidade": x,
-            "Precipitação Acumulada": np.sum(precipitation_on_interval['precip'].data)
-        }
-        df_cpc = pd.concat([df_cpc, pd.DataFrame([city_data])], ignore_index=True)
-   
-    accumulated_precipitation_by_city = cities_lat_long.merge(df_cpc,on="Cidade",how="outer")
-
-    #Precipitation map in the period
-    mg_map = folium.Map(location=[-18.64288124580271, -44.686599834296274], zoom_start=6)
-
-    style = lambda x: {"color" : "white",
-                    "fillOpacity": 1,
-                    "weight": 1}
-
-    folium.GeoJson(
-        cities_geojson_data,
-        name='geojson',
-        style_function=style
-    ).add_to(mg_map)
-
-
-    Choropleth(
-        geo_data=cities_geojson_data,
-        name='precipitação acumulada no período',
-        data=accumulated_precipitation_by_city,
-        columns=['Cidade', 'Precipitação Acumulada'],
-        key_on='feature.properties.name',
-        fill_color='YlOrRd',
-        fill_opacity=0.7,
-        line_opacity=0.2,
-        legend_name='Precipitação Acumulada (mm)',
-        nan_fill_opacity=0.0,
-        nan_fill_color="white"
-    ).add_to(mg_map)
-
-    render_folium_map(mg_map,height=600)

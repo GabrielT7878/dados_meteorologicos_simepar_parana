@@ -13,7 +13,6 @@ import xarray as xr
 import requests
 import json
 from bs4 import BeautifulSoup
-import plotly.express as px
 
 # --------------- Page config ---------------
 page_title = "Painel Seguro Paramétrico ☁️"

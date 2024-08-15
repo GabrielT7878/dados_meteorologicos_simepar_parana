@@ -9,11 +9,11 @@ import streamlit.components.v1 as components
 from scipy.spatial import cKDTree
 import numpy as np
 from folium import Choropleth
-import cdsapi
 import xarray as xr
 import requests
 import json
 from bs4 import BeautifulSoup
+import plotly.express as px
 
 # --------------- Page config ---------------
 page_title = "Painel Seguro Paramétrico ☁️"
@@ -30,30 +30,12 @@ def load_json(file_path):
         return f
     
 @st.cache_data
-def load_geo_json_data(file_path):
-    with open(file_path) as f:
-        geojson_data = json.load(f)
-        return geojson_data
-
-def load_csv_data(file_path,sep):
-    df = pd.read_csv(file_path,sep=sep)
+def load_csv_data(file_path):
+    df = pd.read_csv(file_path)
     return df
 
 @st.cache_data(ttl=datetime.timedelta(days=1))  
-def days_without_rain(city_option, actual_date, total_period_in_days):
-    count = 0
-    date = actual_date
-    for i in range(0,total_period_in_days):
-        day = meteorological_data[(meteorological_data["Data"] == date) & (meteorological_data["Cidade"] == city_option)]
-        max_precipitation = day["Precipitação Acumulada"].sum()
-        if(max_precipitation == 0):
-            count += 1
-        else:
-            return count
-        date -= datetime.timedelta(days=1)
-
-@st.cache_data(ttl=datetime.timedelta(days=1))  
-def days_without_rain_nc(df,last_date_update):
+def days_without_rain(df,last_date_update):
     df = df[df['Precipitação Acumulada'] >= 5]
     if df.size > 0:
         return (last_date_update - df['Data'].to_list()[0]).days, df['Data'].to_list()[0], df['Precipitação Acumulada'].to_list()[0]
@@ -61,7 +43,7 @@ def days_without_rain_nc(df,last_date_update):
     return None
 
 @st.cache_data()
-def get_lat_long(city):
+def get_lat_lon(city):
     location = region[region['Cidade'] == city]
     if not location.empty:
         return location["latitude"].values[0], location["longitude"].values[0]
@@ -70,57 +52,13 @@ def get_lat_long(city):
 
 
 def create_city_map(city_option):
-    latitude, longitude = get_lat_long(city_option)
+    latitude, longitude = get_lat_lon(city_option)
 
     city_map = folium.Map(location=[latitude, longitude], zoom_start=13, min_zoom=6, max_zoom=17)
 
     folium.Marker([latitude, longitude], tooltip=city_option).add_to(city_map)
 
     return city_map
-
-def render_folium_map(map_obj,height=400):
-    map_html = map_obj._repr_html_()
-
-    map_html = f"""
-    <html>
-    <head>
-    <style>
-    .folium-map {{
-        position: relative;
-        width: 100%;
-        height: 400vh;
-    }}
-    </style>
-    </head>
-    <body>
-    <div class="folium-map">{map_html}</div>
-    </body>
-    </html>
-    """
-    components.html(map_html, height=height)  # Ajuste a altura conforme necessário
-
-@st.cache_data(ttl=datetime.timedelta(days=1)) 
-def interpolateData(data=None):
-    known_precipitation = data.dropna(subset=['Precipitação Acumulada'])
-    unknown_precipitation = data[data['Precipitação Acumulada'].isna()]
-
-    tree = cKDTree(known_precipitation[['latitude', 'longitude']])
-
-    def inverse_distance_weighting(distances, values, num_nearest=3):
-        inverse_distances = 1 / distances
-        weights = inverse_distances / inverse_distances.sum()
-        return np.dot(weights, values)
-
-    def interpolate_missing_values(row):
-        distances, indices = tree.query([row['latitude'], row['longitude']], k=3)
-        nearest_values = known_precipitation.iloc[indices]['Precipitação Acumulada'].values
-        return inverse_distance_weighting(distances, nearest_values)
-
-    interpolated_values = unknown_precipitation.apply(interpolate_missing_values, axis=1)
-
-    data.loc[data['Precipitação Acumulada'].isna(), 'Precipitação Acumulada'] = interpolated_values
-
-    return data
 
 def createDailyChart(data, metric):
 
@@ -137,19 +75,6 @@ def createDailyChart(data, metric):
     )
     st.altair_chart(chart_df,use_container_width=True)
 
-def createHourlyChart(df_chart,metric):
-    
-    chart = (
-        alt.Chart(df_chart)
-        .mark_line()
-        .encode(
-            x=alt.X("Horario:N", title="Horário"),
-            y=alt.Y(f'{metric}:Q', title=f'{metric} {metrics_unit[metric]}'),
-            color="Cidade:N"
-        )
-    )
-    st.altair_chart(chart, use_container_width=True)
-
 
 @st.cache_data(ttl=datetime.timedelta(days=1))
 def download_nc_data_from_source(url):
@@ -165,7 +90,6 @@ def download_nc_data_from_source(url):
 
     return data
 
-
 def num_to_human(num):
     if num >= 1_000_000_000:
         num_bilion = num / 1_000_000_000
@@ -178,6 +102,7 @@ def num_to_human(num):
         return f"{num_thousand:,.3f} mil"
     else:
         return f"{num}"
+    
 
 @st.cache_data(ttl=datetime.timedelta(days=1))
 def get_current_coffe_price():
@@ -191,21 +116,18 @@ def get_current_coffe_price():
 
     if response.status_code == 200:
         soup = BeautifulSoup(response.content, 'html.parser')
-        df_valor_saca_cafe = pd.read_html(str(soup))
-        valor_saca_cafe_arabica = df_valor_saca_cafe[0].loc[0]['Valor R$']
-        return valor_saca_cafe_arabica
+        df_coffe_value = pd.read_html(str(soup))
+        coffe_value = df_coffe_value[0].loc[0]['Valor R$']
+        return coffe_value
 
     return None
 
 @st.cache_data
 def calculate_days_without_rain_for_region(region,last_update):
-    #Testing calculate days without rain:
 
     cities_lat_long = region
-
     cidade = []
     dias_sem_chuva = []
-
 
     date_list = [pd.to_datetime(last_update) - datetime.timedelta(days=x) for x in range(180)]
 
@@ -229,14 +151,26 @@ def calculate_days_without_rain_for_region(region,last_update):
 
     return df_cpc
 
+def render_folium_map(map_obj,height=400):
+    map_html = map_obj._repr_html_()
 
-tooltip = folium.GeoJsonTooltip(
-    fields=["name"],
-    aliases=["Cidade: "],
-    localize=True
-)
-    
-
+    map_html = f"""
+    <html>
+    <head>
+    <style>
+    .folium-map {{
+        position: relative;
+        width: 100%;
+        height: 400vh;
+    }}
+    </style>
+    </head>
+    <body>
+    <div class="folium-map">{map_html}</div>
+    </body>
+    </html>
+    """
+    components.html(map_html, height=height)  # Ajuste a altura conforme necessário
 
 metrics = ["Temperatura Média",
             "Umidade Relativa",
@@ -254,40 +188,19 @@ metrics_unit = {
     "Pressão Atmosférica Reduzida": "(hPa)"
 }
 
-
-stations_coordinates = load_json("data/coordenadas_estacoes.json")
-meteorological_data = load_csv_data("data/dados_meteorologicos_simepar_parana.csv",sep=',')
-
-oeste_parana = load_csv_data("./data/lat_lon_oeste_parana.csv",sep=',')
-sul_minas = load_csv_data("./data/lat_lon_sul_minas.csv",sep=',')
-metropolitana_sao_paulo = load_csv_data("./data/lat_long_cidades_rmsp.csv",sep=',')
-
-
-
-
-#processing simepar data
-meteorological_data.fillna(0, inplace=True)
-meteorological_data["Data"] = pd.to_datetime(meteorological_data["Data"])
-
+oeste_parana = load_csv_data("./data/lat_lon_oeste_parana.csv")
+sul_minas = load_csv_data("./data/lat_lon_sul_minas.csv")
+metropolitana_sao_paulo = load_csv_data("./data/lat_lon_rmsp.csv")
 
 cpc_data = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_precip/precip.2024.nc')
-
 cpc_temperature_max = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_temp/tmax.2024.nc')
 cpc_temperature_min = download_nc_data_from_source('https://downloads.psl.noaa.gov/Datasets/cpc_global_temp/tmin.2024.nc')
 
-lavouras_totais = pd.read_csv('data/agricola_cidades_MG_PR_SP.csv',sep=',')
-
-st.write(
-    """
-    Este painel visualiza dados meteorológicos de 4 fontes: CPC, ERA 5, SIMEPAR e CHIRPS
-    """
-)
+lavouras_totais = pd.read_csv('data/agricola_cidades_MG_PR_SP.csv')
 
 secao1 = st.container()
 col_map_city, col_analyse_data_from_city = secao1.columns([1, 1], gap='large')
 col_analyse_data_from_city.header('Dados Meteorológicos')
-
-
 
 with col_map_city:
     selected_region = st.radio('Selecione a Região:',['Oeste Paraná','Sul de Minas','Metropolitana de São Paulo '],index=0, horizontal=True)
@@ -332,9 +245,8 @@ with col_map_city:
     
     st.title("Dados de Agricultura")
 
-
     st.markdown("---")
-    # Informações de Agricultura
+
     col1, col2 = st.columns(2)
 
     with col1:
@@ -357,13 +269,10 @@ with col_map_city:
 
 with col_analyse_data_from_city:
 
-    actual_date = meteorological_data["Data"].max()
-    total_period_in_days = (actual_date - meteorological_data["Data"].min()).days
-
     cpc_last_update = pd.to_datetime(cpc_data['time'][cpc_data["time"].size-1].data)
     cpc_date_list = [cpc_last_update - datetime.timedelta(days=x) for x in range(100)]
 
-    lat, lon = get_lat_long(selected_station)
+    lat, lon = get_lat_lon(selected_station)
 
     precipitation_on_interval = cpc_data.sel(time=cpc_date_list,lat=lat, lon=360 + lon, method='nearest')
 
@@ -372,7 +281,7 @@ with col_analyse_data_from_city:
         "Precipitação Acumulada": precipitation_on_interval['precip'].data
     })
 
-    count_days_without_rain = days_without_rain_nc(df_cpc, cpc_last_update)
+    count_days_without_rain = days_without_rain(df_cpc, cpc_last_update)
 
     tabs = st.tabs(['Chuva', 'Temperatura'])
 
@@ -415,7 +324,7 @@ with col_analyse_data_from_city:
             if len(cpc_period) == 2:
                 numdays = (cpc_period[1] - cpc_period[0]).days + 1 
                 date_list = [cpc_period[1] - datetime.timedelta(days=x) for x in range(numdays)]
-                lat, lon = get_lat_long(selected_station)
+                lat, lon = get_lat_lon(selected_station)
 
                 precipitation_on_interval = cpc_data.sel(time=date_list,lat=lat, lon=360 + lon, method='nearest')
                 df_cpc = pd.DataFrame({
@@ -428,10 +337,6 @@ with col_analyse_data_from_city:
                 #MAP
                 secao2 = st.container()
                 secao2.header(f'Mapa Dias sem Chuva - Região: {selected_region}')
-
-
-                meteorological_data.fillna(0, inplace=True)
-                meteorological_data["Data"] = pd.to_datetime(meteorological_data["Data"])
 
                 df_cpc = calculate_days_without_rain_for_region(region,cpc_last_update)
 
@@ -448,16 +353,12 @@ with col_analyse_data_from_city:
                     region_code = 35
                     coords_map = [-23.51712720453375, -46.58213425292997]
                 
-                #cities_geojson_data = load_geo_json_data(f"./data/geojs-{region_code}-mun.json")
-                cities_geojson_data = load_geo_json_data(f"./data/{region_code}_geo.json")
+                cities_geojson_data = load_json(f"./data/{region_code}_geo.json")
                 
-
-                #cities_lat_long = pd.read_csv("./data/lat_long_cidades_mg.csv",sep=",")
                 cities_lat_long = pd.read_csv("./data/lat_lon_sul_minas.csv",sep=",")
             
                 accumulated_precipitation_by_city = cities_lat_long.merge(df_cpc,on="Cidade",how="outer")
 
-                #Precipitation map in the period
                 mg_map = folium.Map(location=coords_map, zoom_start=8)
 
                 style = lambda x: {"color" : "white",
@@ -469,9 +370,6 @@ with col_analyse_data_from_city:
                     name='geojson',
                     style_function=style
                 ).add_to(mg_map)
-
-
-
 
                 Choropleth(
                     geo_data=cities_geojson_data,
@@ -501,7 +399,7 @@ with col_analyse_data_from_city:
         st.subheader("CPC")
         numdays = (cpc_period[1] - cpc_period[0]).days + 1 
         date_list = [cpc_period[1] - datetime.timedelta(days=x) for x in range(numdays)]
-        lat, lon = get_lat_long(selected_station)
+        lat, lon = get_lat_lon(selected_station)
 
         cpc_temperature_max = cpc_temperature_max.sel(time=date_list,lat=lat, lon=360 + lon, method='nearest')
         cpc_temperature_min = cpc_temperature_min.sel(time=date_list,lat=lat, lon=360 + lon, method='nearest')
@@ -538,8 +436,6 @@ with col_analyse_data_from_city:
 
         st.altair_chart(c, use_container_width=True)
 
-        #createDailyChart(df_cpc,metrics[0])
-
 
 simulacao_seguro_container = st.container()
 
@@ -548,7 +444,7 @@ dias_de_corbertura_seguro = 151
 with simulacao_seguro_container:
     st.title('📊 Simulação do Seguro')
     
-    # Criação das abas
+
     tabs = st.tabs(['☕ Café', '🌱 Soja'])
     
     with tabs[0]:
@@ -559,7 +455,6 @@ with simulacao_seguro_container:
         st.header(f'🗺️ Região: {selected_station}')
         st.subheader(f' ')
 
-        # Dashboard com cartões e layout de colunas
         col1, col2, col3= st.columns([0.7,0.1,0.3])
 
         with col1:
@@ -607,7 +502,7 @@ with simulacao_seguro_container:
 
             cpc_date_list = [cpc_last_update - datetime.timedelta(days=x) for x in range((pd.to_datetime(cpc_last_update) - pd.to_datetime(datetime.date(2024,8,1))).days)]
             
-            lat, lon = get_lat_long(selected_station)
+            lat, lon = get_lat_lon(selected_station)
 
             precipitation_on_interval = cpc_data.sel(time=cpc_date_list,lat=lat, lon=360 + lon, method='nearest')
 
@@ -625,9 +520,3 @@ with simulacao_seguro_container:
 st.write(' ')
 st.write(' ')
 st.write(' ')
-
-
-
-
-
-

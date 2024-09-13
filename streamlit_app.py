@@ -103,7 +103,7 @@ def num_to_human(num):
         return f"{num}"
     
 
-@st.cache_data(ttl=datetime.timedelta(days=1))
+#@st.cache_data(ttl=datetime.timedelta(days=1))
 def get_current_price(produto):
 
     url = f'https://www.cepea.esalq.usp.br/br/indicador/{produto}.aspx'

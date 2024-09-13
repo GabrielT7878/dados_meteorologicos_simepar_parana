@@ -104,9 +104,9 @@ def num_to_human(num):
     
 
 @st.cache_data(ttl=datetime.timedelta(days=1))
-def get_current_coffe_price():
+def get_current_price(produto):
 
-    url = 'https://www.cepea.esalq.usp.br/br/indicador/cafe.aspx'
+    url = f'https://www.cepea.esalq.usp.br/br/indicador/{produto}.aspx'
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
@@ -461,7 +461,7 @@ with simulacao_seguro_container:
 
             with sub_col1:
                 st.subheader('📅 Período de Cobertura')
-                st.metric(label="", value="121 Dias", delta="(Setembro a Dezembro)")
+                st.metric(label="", value="30 Dias", delta="(Setembro)")
             with sub_col2:
                 st.subheader('🌧️ Gatilho de Indenização')
                 st.metric(label="", value="Dias sem chuva")
@@ -474,7 +474,7 @@ with simulacao_seguro_container:
 
             with sub_col4:
                 st.subheader('💰 Valor Atual da Saca de Café')
-                st.metric(label="", value=f"R$ {get_current_coffe_price()}")
+                st.metric(label="", value=f"R$ {get_current_price('cafe')}")
 
 
         with col2:
@@ -499,7 +499,87 @@ with simulacao_seguro_container:
             else:
                 seca_count = count_days_without_rain[0]       
          
-            valor_saca_cafe_arabica = float(get_current_coffe_price().replace('.', '').replace(',', '.'))
+            valor_saca_cafe_arabica = float(get_current_price('cafe').replace('.', '').replace(',', '.'))
+            lmi = area_total * valor_saca_cafe_arabica
+            valor_indenizacao = round((seca_count / dias_de_corbertura_seguro) * lmi)
+
+            st.subheader(f'🌧️ Dias sem chuva')
+
+            cpc_date_list = [cpc_last_update - datetime.timedelta(days=x) for x in range((pd.to_datetime(cpc_last_update) - pd.to_datetime(datetime.date(2024,8,1))).days)]
+            
+            lat, lon = get_lat_lon(selected_station)
+
+            precipitation_on_interval = cpc_data.sel(time=cpc_date_list,lat=lat, lon=360 + lon, method='nearest')
+
+            df_cpc = pd.DataFrame({
+                "Data": precipitation_on_interval['time'].data,
+                "Precipitação Acumulada": precipitation_on_interval['precip'].data
+            })
+
+
+            st.metric(label="", value=f"{seca_count}")
+            st.subheader('💵 Valor da Indenização')
+            st.write(' ')
+            st.header(f":green[R$ {num_to_human(valor_indenizacao)}]")
+
+st.write(' ')
+st.write(' ')
+st.write(' ')
+
+    with tabs[1]:
+        st.header('Seguro Paramétrico com cobertura contra a Seca (Soja)')
+        st.write('')
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        st.header(f'🗺️ Região: {selected_station}')
+        st.subheader(f' ')
+
+        col1, col2, col3= st.columns([0.7,0.1,0.3])
+
+        with col1:
+            sub_col1, sub_col2 = st.columns(2)
+
+            with sub_col1:
+                st.subheader('📅 Período de Cobertura')
+                st.metric(label="", value="30 Dias", delta="(Setembro)")
+            with sub_col2:
+                st.subheader('🌧️ Gatilho de Indenização')
+                st.metric(label="", value="Dias sem chuva")
+
+            sub_col3, sub_col4 = st.columns(2)
+
+            with sub_col3:
+                st.subheader('🌍 Área Total Segurada')
+                st.metric(label="", value=f"{num_to_human(area_total)} hectares")
+
+            with sub_col4:
+                st.subheader('💰 Valor Atual da Saca de Soja')
+                st.metric(label="", value=f"R$ {get_current_price('soja')}")
+
+
+        with col2:
+        
+            st.html(
+            '''
+                <div class="divider-vertical-line"></div>
+                <style>
+                    .divider-vertical-line {
+                        border-left: 2px solid rgba(49, 51, 63, 0.5);
+                        height: 320px;
+                        margin: auto;
+                    }
+                </style>
+            '''
+            )
+
+        with col3:
+            seca_count = 6
+            if count_days_without_rain[0] > 12:
+                seca_count = 12
+            else:
+                seca_count = count_days_without_rain[0]       
+         
+            valor_saca_cafe_arabica = float(get_current_price('soja').replace('.', '').replace(',', '.'))
             lmi = area_total * valor_saca_cafe_arabica
             valor_indenizacao = round((seca_count / dias_de_corbertura_seguro) * lmi)
 

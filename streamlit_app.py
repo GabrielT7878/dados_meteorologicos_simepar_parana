@@ -128,7 +128,7 @@ def calculate_days_without_rain_for_region(region,last_update):
     cidade = []
     dias_sem_chuva = []
 
-    date_list = [pd.to_datetime(last_update) - datetime.timedelta(days=x) for x in range(180)]
+    date_list = [pd.to_datetime(last_update) - datetime.timedelta(days=x) for x in range(250)]
 
     for x in cities_lat_long['Cidade'].unique():
         city =  cities_lat_long[cities_lat_long['Cidade'] == x]
@@ -461,7 +461,7 @@ with simulacao_seguro_container:
 
             with sub_col1:
                 st.subheader('📅 Período de Cobertura')
-                st.metric(label="", value=f"{dias_de_corbertura_seguro} Dias", delta="(Setembro a Dezembro)")
+                st.metric(label="", value="121 Dias", delta="(Setembro a Dezembro)")
             with sub_col2:
                 st.subheader('🌧️ Gatilho de Indenização')
                 st.metric(label="", value="Dias sem chuva")

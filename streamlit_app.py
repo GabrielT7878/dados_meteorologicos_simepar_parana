@@ -517,7 +517,7 @@ with simulacao_seguro_container:
             })
 
 
-            st.metric(label="", value=f"{count_days_without_rain[0]}")
+            st.metric(label="", value=f"{seca_count}")
             st.subheader('💵 Valor da Indenização')
             st.write(' ')
             st.header(f":green[R$ {num_to_human(valor_indenizacao)}]")

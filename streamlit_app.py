@@ -496,7 +496,7 @@ with simulacao_seguro_container:
             seca_count = 6
             if count_days_without_rain[0] > 12:
                 seca_count = 12
-            elif:
+            else:
                 seca_count = count_days_without_rain[0]       
          
             valor_saca_cafe_arabica = float(get_current_coffe_price().replace('.', '').replace(',', '.'))

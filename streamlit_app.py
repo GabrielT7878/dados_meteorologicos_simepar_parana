@@ -389,7 +389,7 @@ with col_analyse_data_from_city:
 
                 render_folium_map(mg_map,height=600)
 
-                st.dataframe(df_cpc,use_container_width=True,height=200)
+                #st.dataframe(df_cpc,use_container_width=True,height=200)
              
 
     with tabs[1]:
@@ -461,7 +461,7 @@ with simulacao_seguro_container:
 
             with sub_col1:
                 st.subheader('📅 Período de Cobertura')
-                st.metric(label="", value=f"{dias_de_corbertura_seguro} Dias", delta="(Agosto a Dezembro)")
+                st.metric(label="", value=f"{dias_de_corbertura_seguro} Dias", delta="(Setembro a Dezembro)")
             with sub_col2:
                 st.subheader('🌧️ Gatilho de Indenização')
                 st.metric(label="", value="Dias sem chuva")
@@ -493,9 +493,15 @@ with simulacao_seguro_container:
             )
 
         with col3:
+            seca_count = 6
+            if count_days_without_rain[0] > 12:
+                seca_count = 12
+            elif:
+                seca_count = count_days_without_rain[0]       
+         
             valor_saca_cafe_arabica = float(get_current_coffe_price().replace('.', '').replace(',', '.'))
             lmi = area_total * valor_saca_cafe_arabica
-            valor_indenizacao = round((count_days_without_rain[0] / dias_de_corbertura_seguro) * lmi)
+            valor_indenizacao = round((seca_count / dias_de_corbertura_seguro) * lmi)
 
             st.subheader(f'🌧️ Dias sem chuva')
 

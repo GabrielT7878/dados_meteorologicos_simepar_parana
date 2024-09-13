@@ -445,7 +445,7 @@ with simulacao_seguro_container:
     
 
     tabs = st.tabs(['☕ Café', '🌱 Soja'])
-    
+
     with tabs[0]:
         st.header('Seguro Paramétrico com cobertura contra a Seca (Café)')
         st.write('')

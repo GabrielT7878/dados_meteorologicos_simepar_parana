@@ -522,9 +522,9 @@ with simulacao_seguro_container:
             st.write(' ')
             st.header(f":green[R$ {num_to_human(valor_indenizacao)}]")
 
-st.write(' ')
-st.write(' ')
-st.write(' ')
+            st.write(' ')
+            st.write(' ')
+            st.write(' ')
 
     with tabs[1]:
         st.header('Seguro Paramétrico com cobertura contra a Seca (Soja)')

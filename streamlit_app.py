@@ -39,7 +39,7 @@ def days_without_rain(df,last_date_update):
     if df.size > 0:
         return (last_date_update - df['Data'].to_list()[0]).days, df['Data'].to_list()[0], df['Precipitação Acumulada'].to_list()[0]
     
-    return (107,datetime.datetime(5,28,2024),8.9)
+    return (107,datetime.datetime(2024,28,5),8.9)
 
 @st.cache_data()
 def get_lat_lon(city):
